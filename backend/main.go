@@ -61,6 +61,11 @@ func main() {
     // Routes
     setupRoutes(app, db)
 
+    // Seed initial data
+    if err := database.SeedTemplates(db); err != nil {
+        log.Printf("Failed to seed templates: %v", err)
+    }
+
 	// Start server
 	port := config.GetEnv("PORT", "8080")
 	log.Printf("Server starting on port %s", port)
@@ -79,17 +84,34 @@ func setupRoutes(app *fiber.App, db *database.DB) {
 	// API routes
 	api := app.Group("/api/v1")
 
+    // Public templates download
+    templates := api.Group("/templates")
+    templates.Get(":key", handlers.DownloadTemplate())
+
 	// Auth routes (no auth required)
 	auth := api.Group("/auth")
 	auth.Post("/register", handlers.Register(db))
 	auth.Post("/login", handlers.Login(db))
 	auth.Post("/google", handlers.GoogleAuth(db))
+    // SSO Google
+    auth.Get("/google/login", handlers.GoogleLoginRedirect())
+    auth.Get("/google/callback", handlers.GoogleLoginCallback(db))
 
-	// Protected routes
-	protected := api.Group("/", middleware.AuthRequired())
-	protected.Get("/profile", handlers.GetProfile(db))
-	protected.Put("/profile", handlers.UpdateProfile(db))
-	protected.Post("/logout", handlers.Logout())
+    // Protected routes (apply middleware only to these routes)
+    api.Get("/profile", middleware.AuthRequired(), handlers.GetProfile(db))
+    api.Put("/profile", middleware.AuthRequired(), handlers.UpdateProfile(db))
+    api.Post("/logout", middleware.AuthRequired(), handlers.Logout())
+
+    // Report periods (protected)
+    api.Get("/report-periods", middleware.AuthRequired(), handlers.ListReportPeriods(db))
+    api.Post("/report-periods", middleware.AuthRequired(), handlers.CreateReportPeriod(db))
+
+    // Workers (protected)
+    api.Get("/workers", middleware.AuthRequired(), handlers.ListWorkers(db))
+    api.Get("/workers/:id", middleware.AuthRequired(), handlers.GetWorker(db))
+    api.Post("/workers", middleware.AuthRequired(), handlers.CreateWorker(db))
+    api.Put("/workers/:id", middleware.AuthRequired(), handlers.UpdateWorker(db))
+    api.Delete("/workers/:id", middleware.AuthRequired(), handlers.DeleteWorker(db))
 
     // (farm routes removed)
 }

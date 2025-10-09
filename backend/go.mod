@@ -1,6 +1,6 @@
 module farm-management-backend
 
-go 1.21
+go 1.24.0
 
 require (
 	github.com/go-playground/validator/v10 v10.27.0
@@ -9,11 +9,13 @@ require (
 	github.com/google/uuid v1.5.0
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/crypto v0.33.0
+	golang.org/x/oauth2 v0.32.0
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect

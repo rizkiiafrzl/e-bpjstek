@@ -147,6 +147,49 @@ class ApiService {
       method: 'GET',
     })
   }
+
+  // Report Periods
+  async getReportPeriods() {
+    return this.request('/report-periods', {
+      method: 'GET',
+    })
+  }
+
+  async createReportPeriod(payload = {}) {
+    return this.request('/report-periods', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  // Workers
+  async getWorkers() {
+    return this.request('/workers', { method: 'GET' })
+  }
+
+  async getWorker(id) {
+    return this.request(`/workers/${id}`, { method: 'GET' })
+  }
+
+  async createWorker(worker) {
+    return this.request('/workers', {
+      method: 'POST',
+      body: JSON.stringify(worker),
+    })
+  }
+
+  async updateWorker(id, worker) {
+    return this.request(`/workers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(worker),
+    })
+  }
+
+  async deleteWorker(id) {
+    return this.request(`/workers/${id}`, {
+      method: 'DELETE',
+    })
+  }
 }
 
 // Create singleton instance

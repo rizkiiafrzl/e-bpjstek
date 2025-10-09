@@ -271,18 +271,33 @@ const handleUpload = async () => {
   }
 }
 
-const downloadTemplate = () => {
-  // Simulate template download
-  const templateName =
-    uploadType.value === 'mendaftar' ? 'template_tk_mendaftar.xlsx' : 'template_tk_lanjutan.xlsx'
+import api from '@/services/api'
 
-  alert(`Downloading template: ${templateName}`)
+const downloadTemplate = async () => {
+  try {
+    const key = uploadType.value === 'mendaftar' ? 'tk' : 'koreksi_tk'
+    const filename = uploadType.value === 'mendaftar'
+      ? 'template_tk_24101780.xlsx'
+      : 'template_koreksi_tk_24101780.xlsx'
 
-  // In real implementation, this would trigger actual file download
-  const link = document.createElement('a')
-  link.href = '#'
-  link.download = templateName
-  link.click()
+    const base = api.baseURL || (import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1')
+    const url = `${base}/templates/${key}`
+
+    const response = await fetch(url, { method: 'GET' })
+    if (!response.ok) {
+      throw new Error('Gagal mengunduh template')
+    }
+    const blob = await response.blob()
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(link.href)
+  } catch (e) {
+    alert('Gagal mengunduh template')
+  }
 }
 
 const downloadFailedData = (item) => {
@@ -337,3 +352,4 @@ const loadHistoryData = async () => {
   gap: 16px;
 }
 </style>
+

@@ -95,13 +95,27 @@
               />
             </v-col>
             <v-col cols="12" md="4">
-              <v-text-field
-                v-model="form.tgl"
-                label="Tanggal Lahir"
-                placeholder="dd-mm-yyyy"
-                variant="outlined"
-                :rules="[(v) => !!v || 'Wajib diisi']"
-              />
+              <v-menu
+                v-model="dobMenu"
+                :close-on-content-click="false"
+                transition="scale-transition"
+                offset-y
+                max-width="290px"
+                min-width="auto"
+              >
+                <template #activator="{ props }">
+                  <v-text-field
+                    v-bind="props"
+                    :model-value="displayDob"
+                    label="Tanggal Lahir"
+                    placeholder="dd-mm-yyyy"
+                    variant="outlined"
+                    readonly
+                    :rules="[(v) => !!dob || 'Wajib diisi']"
+                  />
+                </template>
+                <v-date-picker v-model="dob" hide-actions @update:model-value="onPickDob" />
+              </v-menu>
             </v-col>
           </v-row>
 
@@ -136,14 +150,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import TraditionalCaptcha from '../components/TraditionalCaptcha.vue'
+import apiService from '../services/api.js'
 
 const router = useRouter()
+const props = defineProps({ id: { type: [String, Number], required: false } })
 
 const formRef = ref(null)
-const form = ref({ nik: '', nama: '', tgl: '' })
+const form = ref({ nik: '', nama: '' })
+const dob = ref('') // YYYY-MM-DD
+const dobMenu = ref(false)
 const captchaValue = ref('')
 const captchaVerified = ref(false)
 const captchaRef = ref(null)
@@ -158,8 +176,25 @@ const precheckTouched = ref(false)
 // Success dialog
 const dlgSuccess = ref(false)
 
-onMounted(() => {
-  openPrechecks()
+onMounted(async () => {
+  if (props.id && String(props.id).length > 0) {
+    // Editing mode: load worker and prefill
+    try {
+      const data = await apiService.getWorker(String(props.id))
+      form.value.nik = data.nik || ''
+      form.value.nama = data.nama || ''
+      hasCard.value = data.kpj ? 'sudah' : 'belum'
+      kpj.value = data.kpj || ''
+      if (data.dateOfBirth) {
+        dob.value = data.dateOfBirth
+      }
+      dlgPrecheck.value = false
+    } catch (e) {
+      console.error('Gagal memuat worker', e)
+    }
+  } else {
+    openPrechecks()
+  }
 })
 
 const openPrechecks = () => {
@@ -182,18 +217,83 @@ const finishPrecheck = () => {
   dlgPrecheck.value = false
 }
 
-const onCaptcha = () => {
+const onCaptcha = (val) => {
   captchaVerified.value = true
+  captchaValue.value = val || '1'
 }
 const onCaptchaError = () => {
   captchaVerified.value = false
 }
 
+const onPickDob = (val) => {
+  // Normalisasi ke format YYYY-MM-DD
+  try {
+    const dt = typeof val === 'string' ? new Date(val) : val
+    if (dt instanceof Date && !isNaN(dt)) {
+      const y = dt.getFullYear()
+      const m = String(dt.getMonth() + 1).padStart(2, '0')
+      const d = String(dt.getDate()).padStart(2, '0')
+      dob.value = `${y}-${m}-${d}`
+    }
+  } catch {
+    // ignore parse error and keep original value
+  }
+  dobMenu.value = false
+}
+
+const displayDob = computed(() => {
+  if (!dob.value) return ''
+  const v = dob.value
+  if (typeof v === 'string' && v.includes('-')) {
+    const [y, m, d] = v.split('-')
+    return `${d}-${m}-${y}`
+  }
+  if (v instanceof Date && !isNaN(v)) {
+    const y = v.getFullYear()
+    const m = String(v.getMonth() + 1).padStart(2, '0')
+    const d = String(v.getDate()).padStart(2, '0')
+    return `${d}-${m}-${y}`
+  }
+  return ''
+})
+
 const submit = async () => {
   const { valid } = await formRef.value.validate()
   if (!valid) return
-  if (!captchaVerified.value || !captchaValue.value) return
-  dlgSuccess.value = true
+  if (!captchaVerified.value || !captchaValue.value) {
+    alert('Mohon verifikasi CAPTCHA terlebih dahulu')
+    return
+  }
+  if (!dob.value) {
+    alert('Tanggal lahir wajib diisi')
+    return
+  }
+  try {
+    if (props.id) {
+      await apiService.updateWorker(props.id, {
+        nik: form.value.nik,
+        nama: form.value.nama,
+        noPegawai: '',
+        kpj: hasCard.value === 'sudah' ? kpj.value : '',
+        dateOfBirth: dob.value || '',
+        upah: 0,
+        rapel: 0,
+      })
+    } else {
+      await apiService.createWorker({
+        nik: form.value.nik,
+        nama: form.value.nama,
+        noPegawai: '',
+        kpj: hasCard.value === 'sudah' ? kpj.value : '',
+        dateOfBirth: dob.value || '',
+        upah: 0,
+        rapel: 0,
+      })
+    }
+    dlgSuccess.value = true
+  } catch (e) {
+    alert(e?.message || 'Gagal menyimpan data tenaga kerja')
+  }
 }
 
 const goBackToEdit = () => {

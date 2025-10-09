@@ -5,6 +5,7 @@ import (
     "farm-management-backend/models"
     "fmt"
     "log"
+    "path/filepath"
 
     "gorm.io/driver/postgres"
     "gorm.io/gorm"
@@ -39,6 +40,9 @@ func Connect() (*DB, error) {
 func Migrate(db *DB) error {
     err := db.AutoMigrate(
         &models.User{},
+        &models.Template{},
+        &models.ReportPeriod{},
+        &models.Worker{},
     )
 	if err != nil {
 		return fmt.Errorf("failed to migrate database: %w", err)
@@ -46,4 +50,33 @@ func Migrate(db *DB) error {
 
 	log.Println("Database migration completed")
 	return nil
+}
+
+// SeedTemplates inserts initial template metadata if not present
+func SeedTemplates(db *DB) error {
+    type pair struct{ key, file string }
+    files := []pair{
+        {"upah", "templates/template_upah_24101780.xlsx"},
+        {"tk", "templates/template_tk_24101780.xlsx"},
+        {"tk_na", "templates/template_tk_na_24101780.xlsx"},
+        {"koreksi_tk", "templates/template_koreksi_tk_24101780.xlsx"},
+    }
+    for _, p := range files {
+        var count int64
+        db.Model(&models.Template{}).Where("key = ?", p.key).Count(&count)
+        if count == 0 {
+            fn := filepath.Base(p.file)
+            tmpl := models.Template{
+                Key:      p.key,
+                FileName: fn,
+                FilePath: filepath.ToSlash(p.file),
+                MimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                IsActive: true,
+            }
+            if err := db.Create(&tmpl).Error; err != nil {
+                return fmt.Errorf("failed to seed template %s: %w", p.key, err)
+            }
+        }
+    }
+    return nil
 }

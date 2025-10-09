@@ -184,7 +184,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(row, idx) in tableData" :key="idx">
+                    <tr v-for="(row, idx) in tableData" :key="row.id || idx">
                       <td class="nik-column">{{ row.nik }}</td>
                       <td class="kpj-column">{{ row.kpj || '-' }}</td>
                       <td class="no-pegawai-column">{{ row.noPegawai || '-' }}</td>
@@ -192,18 +192,32 @@
                       <td class="upah-column">{{ row.upah }}</td>
                       <td class="rapel-column">{{ row.rapel }}</td>
                       <td class="action-column">
-                        <v-btn
-                          size="small"
-                          color="error"
-                          variant="text"
-                          icon="mdi-pencil"
-                          @click="editRow(row)"
-                        ></v-btn>
+                        <v-btn size="small" color="primary" variant="text" icon="mdi-pencil" @click.stop.prevent="openEdit(row)"></v-btn>
+                        <v-btn size="small" color="error" variant="text" icon="mdi-delete" @click.stop.prevent="confirmDelete(row)"></v-btn>
                       </td>
                     </tr>
                   </tbody>
                 </v-table>
               </div>
+
+              <!-- Edit Dialog -->
+              <v-dialog v-model="editing" max-width="520">
+                <v-card>
+                  <v-card-title>Edit Data Karyawan</v-card-title>
+                  <v-card-text>
+                    <v-text-field v-model="editItem.nik" label="NIK" variant="outlined" />
+                    <v-text-field v-model="editItem.kpj" label="KPJ" variant="outlined" />
+                    <v-text-field v-model="editItem.noPegawai" label="No Pegawai" variant="outlined" />
+                    <v-text-field v-model="editItem.nama" label="Nama" variant="outlined" />
+                    <v-text-field v-model.number="editItem.upah" label="Upah" variant="outlined" type="number" />
+                    <v-text-field v-model.number="editItem.rapel" label="Rapel" variant="outlined" type="number" />
+                  </v-card-text>
+                  <v-card-actions class="justify-end">
+                    <v-btn variant="text" @click="editing = false">Batal</v-btn>
+                    <v-btn color="primary" @click="saveEdit">Simpan</v-btn>
+                  </v-card-actions>
+                </v-card>
+              </v-dialog>
 
               <!-- Table Footer -->
               <div class="d-flex justify-space-between align-center mt-6 table-footer">
@@ -414,34 +428,73 @@ const actionButtons = ref([
   },
 ])
 
-// Table data
-const tableData = ref([
-  {
-    nik: '1271031801580002',
-    kpj: 'KPJ001',
-    noPegawai: 'EMP001',
-    nama: 'HASRUL HARAHAP',
-    upah: '10.000.000,00',
-    rapel: '0,00',
-  },
-  {
-    nik: '1671064103020003',
-    kpj: 'KPJ002',
-    noPegawai: 'EMP002',
-    nama: 'ADELIA KHAIRANI',
-    upah: '10.000.000,00',
-    rapel: '0,00',
-  },
-])
+// Table data dari API workers
+import apiService from '../services/api.js'
+const tableData = ref([])
+const editing = ref(false)
+const editItem = ref({ id: null, nik: '', kpj: '', noPegawai: '', nama: '', upah: 0, rapel: 0 })
 
-onMounted(() => {
+onMounted(async () => {
   // Show notification modal first when page loads
   showNotificationModal.value = true
+  try {
+    const rows = await apiService.getWorkers()
+    tableData.value = Array.isArray(rows)
+      ? rows.map((r) => ({
+          id: r.id,
+          nik: r.nik,
+          kpj: r.kpj,
+          noPegawai: r.noPegawai,
+          nama: r.nama,
+          upah: new Intl.NumberFormat('id-ID', { style: 'decimal', minimumFractionDigits: 2 }).format(r.upah || 0),
+          rapel: new Intl.NumberFormat('id-ID', { style: 'decimal', minimumFractionDigits: 2 }).format(r.rapel || 0),
+        }))
+      : []
+  } catch (e) {
+    console.error('Gagal memuat workers', e)
+  }
 })
 
-const editRow = (row) => {
-  console.log('Edit row:', row)
-  // Handle edit action
+const openEdit = (row) => {
+  router.push(`/tenaga/edit/${row.id}`)
+}
+
+const saveEdit = async () => {
+  try {
+    await apiService.updateWorker(editItem.value.id, {
+      nik: editItem.value.nik,
+      kpj: editItem.value.kpj,
+      noPegawai: editItem.value.noPegawai,
+      nama: editItem.value.nama,
+      upah: editItem.value.upah,
+      rapel: editItem.value.rapel,
+    })
+    const rows = await apiService.getWorkers()
+    tableData.value = Array.isArray(rows)
+      ? rows.map((r) => ({
+          id: r.id,
+          nik: r.nik,
+          kpj: r.kpj,
+          noPegawai: r.noPegawai,
+          nama: r.nama,
+          upah: new Intl.NumberFormat('id-ID', { style: 'decimal', minimumFractionDigits: 2 }).format(r.upah || 0),
+          rapel: new Intl.NumberFormat('id-ID', { style: 'decimal', minimumFractionDigits: 2 }).format(r.rapel || 0),
+        }))
+      : []
+    editing.value = false
+  } catch (e) {
+    alert(e?.message || 'Gagal menyimpan perubahan')
+  }
+}
+
+const confirmDelete = async (row) => {
+  if (!confirm('Hapus data karyawan ini?')) return
+  try {
+    await apiService.deleteWorker(row.id)
+    tableData.value = tableData.value.filter((r) => r.id !== row.id)
+  } catch (e) {
+    alert(e?.message || 'Gagal menghapus data')
+  }
 }
 
 const handleDetailClick = () => {
@@ -456,6 +509,12 @@ const handleActionClick = (action) => {
   console.log('Action clicked:', action)
   if (action === 'tambah-tk') {
     openAddWorkerFlow()
+  } else if (action === 'upload-tk-na') {
+    router.push('/tenaga/upload-na')
+  } else if (action === 'upload-upah') {
+    router.push('/tenaga/upload-upah')
+  } else if (action === 'koreksi-data') {
+    router.push('/tenaga/koreksi-data')
   }
 }
 

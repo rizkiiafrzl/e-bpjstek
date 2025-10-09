@@ -73,7 +73,7 @@
                   <div
                     class="d-flex justify-space-between align-center flex-wrap gap-4 mb-4 controls-row"
                   >
-                    <v-btn color="primary" variant="elevated" prepend-icon="mdi-plus">
+                    <v-btn color="primary" variant="elevated" prepend-icon="mdi-plus" @click="addPeriod">
                       Tambah Periode Pelaporan
                     </v-btn>
                     <div class="filters-group">
@@ -118,47 +118,22 @@
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="(row, idx) in demoRows" :key="idx">
+                        <tr v-for="(row, idx) in reportRows" :key="row.id || idx">
                           <td>{{ idx + 1 }}</td>
-                          <td>{{ row.bulan }}</td>
-                          <td>{{ row.tk }}</td>
-                          <td>{{ row.iuran }}</td>
-                          <td>{{ row.denda }}</td>
+                          <td>{{ toMonthYear(row.year, row.month) }}</td>
+                          <td>{{ row.totalTk ?? '-' }}</td>
+                          <td>{{ formatCurrency(row.totalIuran) }}</td>
+                          <td>{{ formatCurrency(row.totalDenda) }}</td>
                           <td>
-                            <v-chip
-                              :color="
-                                row.status === 'Posting'
-                                  ? 'success'
-                                  : row.status === 'Draft'
-                                    ? 'grey'
-                                    : 'info'
-                              "
-                              size="small"
-                              variant="tonal"
-                            >
-                              {{ row.status }}
+                            <v-chip :color="row.status === 'Posting' ? 'success' : row.status === 'Draft' ? 'grey' : 'info'" size="small" variant="tonal">
+                              {{ row.status || 'Draft' }}
                             </v-chip>
                           </td>
                           <td>
                             <div class="aksi-buttons">
-                              <v-btn
-                                size="x-small"
-                                color="primary"
-                                variant="tonal"
-                                prepend-icon="mdi-pencil"
-                                @click="navigateToEdit(row)"
-                                >Edit</v-btn
-                              >
-                              <v-btn size="x-small" variant="tonal" prepend-icon="mdi-printer"
-                                >Cetak</v-btn
-                              >
-                              <v-btn
-                                size="x-small"
-                                variant="outlined"
-                                color="error"
-                                prepend-icon="mdi-delete"
-                                >Hapus</v-btn
-                              >
+                              <v-btn size="x-small" color="primary" variant="tonal" prepend-icon="mdi-pencil" @click="navigateToEdit(row)">Edit</v-btn>
+                              <v-btn size="x-small" variant="tonal" prepend-icon="mdi-printer">Cetak</v-btn>
+                              <v-btn size="x-small" variant="outlined" color="error" prepend-icon="mdi-delete">Hapus</v-btn>
                             </div>
                           </td>
                         </tr>
@@ -184,15 +159,10 @@ const router = useRouter()
 const userEmail = ref('')
 const loginTime = ref('')
 
-// Demo rows untuk tabel mutasi (statik; nanti bisa diganti API)
-const demoRows = ref([
-  { bulan: '06/2025', tk: 4, iuran: '118.800,00', denda: '0,00', status: 'Draft' },
-  { bulan: '05/2025', tk: 4, iuran: '118.800,00', denda: '0,00', status: 'Draft' },
-  { bulan: '04/2025', tk: 4, iuran: '21.600,00', denda: '0,00', status: 'Draft' },
-  { bulan: '03/2025', tk: 3, iuran: '40.500,00', denda: '0,00', status: 'Posting' },
-])
+// Data periode pelaporan dari API
+const reportRows = ref([])
 
-onMounted(() => {
+onMounted(async () => {
   // Get user data from localStorage
   const userData = localStorage.getItem('user')
   if (userData) {
@@ -214,6 +184,13 @@ onMounted(() => {
   } else {
     loginTime.value = new Date().toLocaleString('id-ID')
   }
+  // Muat data periode pelaporan dari API
+  try {
+    const data = await apiService.getReportPeriods()
+    reportRows.value = Array.isArray(data) ? data : []
+  } catch (e) {
+    console.error('Gagal memuat periode pelaporan', e)
+  }
 })
 
 const handleLogout = async () => {
@@ -234,6 +211,33 @@ const navigateToEdit = (row) => {
   if (confirm('Apakah Anda yakin ingin mengedit data ini?')) {
     const dataParam = encodeURIComponent(JSON.stringify(row))
     router.push(`/edit/${dataParam}`)
+  }
+}
+
+// Tambah periode pelaporan (default: bulan berjalan), cegah duplikat per bulan
+const addPeriod = async () => {
+  try {
+    await apiService.createReportPeriod({})
+    const data = await apiService.getReportPeriods()
+    reportRows.value = Array.isArray(data) ? data : []
+    alert('Periode pelaporan berhasil ditambahkan')
+  } catch (e) {
+    alert(e?.message || 'Gagal menambah periode pelaporan')
+  }
+}
+
+// Util
+const toMonthYear = (year, month) => {
+  const m = String(month).padStart(2, '0')
+  return `${m}/${year}`
+}
+
+const formatCurrency = (n) => {
+  if (n == null) return '0,00'
+  try {
+    return new Intl.NumberFormat('id-ID', { style: 'decimal', minimumFractionDigits: 2 }).format(n)
+  } catch {
+    return String(n)
   }
 }
 </script>

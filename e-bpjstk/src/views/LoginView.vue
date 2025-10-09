@@ -181,7 +181,8 @@ const handleLogin = async () => {
 }
 
 const handleGoogleLogin = () => {
-  console.log('Google login clicked')
+  const base = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
+  window.location.href = `${base}/auth/google/login`
 }
 
 // CAPTCHA event handlers
