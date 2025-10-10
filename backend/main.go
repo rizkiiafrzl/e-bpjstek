@@ -1,11 +1,11 @@
 package main
 
 import (
-    "farm-management-backend/config"
-    "farm-management-backend/database"
-    "farm-management-backend/handlers"
-    "farm-management-backend/middleware"
-    "log"
+	"farm-management-backend/config"
+	"farm-management-backend/database"
+	"farm-management-backend/handlers"
+	"farm-management-backend/middleware"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -19,8 +19,8 @@ func main() {
 		log.Println("No .env file found, using system environment variables")
 	}
 
-    // Initialize database
-    db, err := database.Connect()
+	// Initialize database
+	db, err := database.Connect()
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
@@ -52,19 +52,19 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-    // Inject db into context for middleware access
-    app.Use(func(c *fiber.Ctx) error {
-        c.Locals("db", db)
-        return c.Next()
-    })
+	// Inject db into context for middleware access
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("db", db)
+		return c.Next()
+	})
 
-    // Routes
-    setupRoutes(app, db)
+	// Routes
+	setupRoutes(app, db)
 
-    // Seed initial data
-    if err := database.SeedTemplates(db); err != nil {
-        log.Printf("Failed to seed templates: %v", err)
-    }
+	// Seed initial data
+	if err := database.SeedTemplates(db); err != nil {
+		log.Printf("Failed to seed templates: %v", err)
+	}
 
 	// Start server
 	port := config.GetEnv("PORT", "8080")
@@ -76,7 +76,7 @@ func setupRoutes(app *fiber.App, db *database.DB) {
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
-			"status": "ok",
+			"status":  "ok",
 			"message": "Farm Management API is running",
 		})
 	})
@@ -84,34 +84,49 @@ func setupRoutes(app *fiber.App, db *database.DB) {
 	// API routes
 	api := app.Group("/api/v1")
 
-    // Public templates download
-    templates := api.Group("/templates")
-    templates.Get(":key", handlers.DownloadTemplate())
+	// Public templates download
+	templates := api.Group("/templates")
+	templates.Get(":key", handlers.DownloadTemplate())
 
 	// Auth routes (no auth required)
 	auth := api.Group("/auth")
 	auth.Post("/register", handlers.Register(db))
 	auth.Post("/login", handlers.Login(db))
 	auth.Post("/google", handlers.GoogleAuth(db))
-    // SSO Google
-    auth.Get("/google/login", handlers.GoogleLoginRedirect())
-    auth.Get("/google/callback", handlers.GoogleLoginCallback(db))
+	// SSO Google
+	auth.Get("/google/login", handlers.GoogleLoginRedirect())
+	auth.Get("/google/callback", handlers.GoogleLoginCallback(db))
 
-    // Protected routes (apply middleware only to these routes)
-    api.Get("/profile", middleware.AuthRequired(), handlers.GetProfile(db))
-    api.Put("/profile", middleware.AuthRequired(), handlers.UpdateProfile(db))
-    api.Post("/logout", middleware.AuthRequired(), handlers.Logout())
+	// Protected routes (apply middleware only to these routes)
+	api.Get("/profile", middleware.AuthRequired(), handlers.GetProfile(db))
+	api.Put("/profile", middleware.AuthRequired(), handlers.UpdateProfile(db))
+	api.Post("/logout", middleware.AuthRequired(), handlers.Logout())
 
-    // Report periods (protected)
-    api.Get("/report-periods", middleware.AuthRequired(), handlers.ListReportPeriods(db))
-    api.Post("/report-periods", middleware.AuthRequired(), handlers.CreateReportPeriod(db))
+	// Report periods (protected)
+	api.Get("/report-periods", middleware.AuthRequired(), handlers.ListReportPeriods(db))
+	api.Post("/report-periods", middleware.AuthRequired(), handlers.CreateReportPeriod(db))
+	api.Delete("/report-periods/:id", middleware.AuthRequired(), handlers.DeleteReportPeriod(db))
+	api.Post("/report-periods/:id/calculate", middleware.AuthRequired(), handlers.CalculateReportPeriod(db))
+	api.Post("/report-periods/:id/finalize", middleware.AuthRequired(), handlers.FinalizeReportPeriod(db))
+	api.Get("/report-periods/:id/print", middleware.AuthRequired(), handlers.PrintReportPeriod(db))
+	api.Get("/report-periods-summary", middleware.AuthRequired(), handlers.SummaryDashboard(db))
 
-    // Workers (protected)
-    api.Get("/workers", middleware.AuthRequired(), handlers.ListWorkers(db))
-    api.Get("/workers/:id", middleware.AuthRequired(), handlers.GetWorker(db))
-    api.Post("/workers", middleware.AuthRequired(), handlers.CreateWorker(db))
-    api.Put("/workers/:id", middleware.AuthRequired(), handlers.UpdateWorker(db))
-    api.Delete("/workers/:id", middleware.AuthRequired(), handlers.DeleteWorker(db))
+	// Workers (protected)
+	// Specific routes must come BEFORE parameter routes to avoid conflicts
+	api.Post("/workers/upload", middleware.AuthRequired(), handlers.UploadWorkers(db))
+	api.Post("/workers/upload-tk", middleware.AuthRequired(), handlers.UploadTK(db))
+	api.Post("/workers/upload-upah", middleware.AuthRequired(), handlers.UploadUpah(db))
+	api.Post("/koreksi-data-tk", middleware.AuthRequired(), handlers.KoreksiTK(db))
+	api.Get("/workers/upload-history", middleware.AuthRequired(), handlers.ListUploadHistory(db))
+	api.Get("/workers/upload-history/:id/download", middleware.AuthRequired(), handlers.DownloadUploadedFile(db))
+	api.Delete("/workers/upload-history/:id", middleware.AuthRequired(), handlers.DeleteUploadHistory(db))
+	// General routes
+	api.Get("/workers", middleware.AuthRequired(), handlers.ListWorkers(db))
+	api.Post("/workers", middleware.AuthRequired(), handlers.CreateWorker(db))
+	// Parameter routes must come LAST to avoid catching specific routes
+	api.Get("/workers/:id", middleware.AuthRequired(), handlers.GetWorker(db))
+	api.Put("/workers/:id", middleware.AuthRequired(), handlers.UpdateWorker(db))
+	api.Delete("/workers/:id", middleware.AuthRequired(), handlers.DeleteWorker(db))
 
-    // (farm routes removed)
+	// (farm routes removed)
 }

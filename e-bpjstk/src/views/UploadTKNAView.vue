@@ -141,17 +141,22 @@ const handleUpload = async () => {
   isUploading.value = true
 
   try {
-    // Simulate upload process
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-
-    // Show success message
-    alert('File berhasil diupload!')
+    // Upload TK NA menggunakan API upload TK
+    const result = await api.uploadTK(selectedFile.value)
+    
+    // Show success message with details
+    const message = `File berhasil diupload!\n\n` +
+      `Total Data: ${result.totalData || 0}\n` +
+      `Valid: ${result.valid || 0}\n` +
+      `Invalid: ${result.invalid || 0}`
+    
+    alert(message)
 
     // Reset form
     selectedFile.value = null
   } catch (error) {
     console.error('Upload error:', error)
-    alert('Gagal mengupload file. Silakan coba lagi.')
+    alert(error?.message || 'Gagal mengupload file. Silakan coba lagi.')
   } finally {
     isUploading.value = false
   }

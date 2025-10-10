@@ -147,15 +147,26 @@
             </template>
 
             <template v-slot:item.action="{ item }">
-              <v-btn
-                size="small"
-                color="primary"
-                variant="outlined"
-                prepend-icon="mdi-download"
-                @click="downloadFailedData(item)"
-              >
-                Download
-              </v-btn>
+              <div class="d-flex gap-2">
+                <v-btn
+                  size="small"
+                  color="success"
+                  variant="outlined"
+                  prepend-icon="mdi-download"
+                  @click="downloadFailedData(item)"
+                >
+                  Download
+                </v-btn>
+                <v-btn
+                  size="small"
+                  color="error"
+                  variant="outlined"
+                  prepend-icon="mdi-delete"
+                  @click="confirmDeleteHistory(item)"
+                >
+                  Hapus
+                </v-btn>
+              </div>
             </template>
 
             <template v-slot:no-data>
@@ -167,6 +178,48 @@
           </v-data-table>
         </v-card-text>
       </v-card>
+
+      <!-- Delete Confirmation Dialog -->
+      <v-dialog v-model="deleteDialog" max-width="500">
+        <v-card>
+          <v-card-title class="text-h5">
+            <v-icon left color="error">mdi-alert-circle</v-icon>
+            Konfirmasi Hapus
+          </v-card-title>
+          <v-card-text>
+            <p>Apakah Anda yakin ingin menghapus file upload ini?</p>
+            <p class="text-body-2 text-medium-emphasis">
+              File: <strong>{{ selectedItem?.fileName || 'N/A' }}</strong><br>
+              Tanggal: <strong>{{ selectedItem?.validationDate || 'N/A' }}</strong>
+            </p>
+            <v-alert type="warning" variant="tonal" class="mt-3">
+              <div class="text-body-2">
+                <strong>Peringatan:</strong> Tindakan ini tidak dapat dibatalkan. 
+                File dan data terkait akan dihapus secara permanen.
+              </div>
+            </v-alert>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn
+              color="grey"
+              variant="text"
+              @click="deleteDialog = false"
+            >
+              Batal
+            </v-btn>
+            <v-btn
+              color="error"
+              variant="flat"
+              :loading="isDeleting"
+              @click="deleteHistoryItem"
+            >
+              <v-icon left>mdi-delete</v-icon>
+              Hapus
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </v-container>
   </div>
 </template>
@@ -212,6 +265,11 @@ const isLoadingHistory = ref(false)
 const itemsPerPage = ref(10)
 const searchQuery = ref('')
 
+// Delete functionality
+const deleteDialog = ref(false)
+const selectedItem = ref(null)
+const isDeleting = ref(false)
+
 onMounted(() => {
   loadHistoryData()
 })
@@ -247,25 +305,30 @@ const handleUpload = async () => {
     alert('Pilih file dan jenis upload terlebih dahulu')
     return
   }
-
   isUploading.value = true
-
   try {
-    // Simulate upload process
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-
-    // Show success message
-    alert('File berhasil diupload!')
-
-    // Reset form
+    let result
+    if (uploadType.value === 'mendaftar' || uploadType.value === 'lanjutan') {
+      // Upload TK menggunakan endpoint khusus
+      result = await api.uploadTK(selectedFile.value)
+    } else {
+      // Upload lainnya menggunakan endpoint umum
+      result = await api.uploadWorkers(selectedFile.value)
+    }
+    
+    // Show success message with details
+    const message = `File berhasil diupload!\n\n` +
+      `Total Data: ${result.totalData || 0}\n` +
+      `Valid: ${result.valid || 0}\n` +
+      `Invalid: ${result.invalid || 0}`
+    
+    alert(message)
     selectedFile.value = null
     uploadType.value = 'mendaftar'
-
-    // Reload history
-    loadHistoryData()
+    await loadHistoryData()
   } catch (error) {
     console.error('Upload error:', error)
-    alert('Gagal mengupload file. Silakan coba lagi.')
+    alert(error?.message || 'Gagal mengupload file. Silakan coba lagi.')
   } finally {
     isUploading.value = false
   }
@@ -312,19 +375,55 @@ const downloadFailedData = (item) => {
 
 const loadHistoryData = async () => {
   isLoadingHistory.value = true
-
   try {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    // Mock data - in real implementation, this would come from API
-    historyData.value = [
-      // Add sample data here if needed
-    ]
+    const list = await api.getUploadHistory()
+    historyData.value = Array.isArray(list) ? list : []
   } catch (error) {
     console.error('Error loading history:', error)
   } finally {
     isLoadingHistory.value = false
+  }
+}
+
+const confirmDeleteHistory = (item) => {
+  selectedItem.value = item
+  deleteDialog.value = true
+}
+
+const deleteHistoryItem = async () => {
+  if (!selectedItem.value) return
+  
+  isDeleting.value = true
+  try {
+    console.log('Deleting upload history with ID:', selectedItem.value.id)
+    await api.deleteUploadHistory(selectedItem.value.id)
+    alert('File berhasil dihapus!')
+    deleteDialog.value = false
+    selectedItem.value = null
+    await loadHistoryData() // Reload history data
+  } catch (error) {
+    console.error('Error deleting history:', error)
+    console.error('Error details:', {
+      message: error?.message,
+      stack: error?.stack,
+      selectedItem: selectedItem.value
+    })
+    
+    let errorMessage = 'Gagal menghapus file. Silakan coba lagi.'
+    
+    if (error?.message === 'Failed to fetch') {
+      errorMessage = 'Tidak dapat terhubung ke server. Pastikan backend sedang berjalan di http://localhost:8080'
+    } else if (error?.message?.includes('404')) {
+      errorMessage = 'File tidak ditemukan atau sudah dihapus.'
+    } else if (error?.message?.includes('401')) {
+      errorMessage = 'Sesi login telah berakhir. Silakan login ulang.'
+    } else if (error?.message) {
+      errorMessage = error.message
+    }
+    
+    alert(errorMessage)
+  } finally {
+    isDeleting.value = false
   }
 }
 </script>
@@ -350,6 +449,10 @@ const loadHistoryData = async () => {
 
 .gap-4 {
   gap: 16px;
+}
+
+.gap-2 {
+  gap: 8px;
 }
 </style>
 

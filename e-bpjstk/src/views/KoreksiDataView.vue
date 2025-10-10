@@ -107,6 +107,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import api from '@/services/api'
 
 const router = useRouter()
 
@@ -163,18 +164,23 @@ const handleUpload = async () => {
   isUploading.value = true
 
   try {
-    // Simulate upload process
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-
-    // Show success message
-    alert('File berhasil diupload!')
+    // Upload Koreksi menggunakan API koreksi TK yang benar
+    const result = await api.koreksiTK(selectedFile.value)
+    
+    // Show success message with details
+    const message = `Koreksi data TK berhasil!\n\n` +
+      `Total Data: ${result.totalData || 0}\n` +
+      `Valid: ${result.valid || 0}\n` +
+      `Invalid: ${result.invalid || 0}`
+    
+    alert(message)
 
     // Reset form
     selectedFile.value = null
     uploadType.value = 'koreksi'
   } catch (error) {
     console.error('Upload error:', error)
-    alert('Gagal mengupload file. Silakan coba lagi.')
+    alert(error?.message || 'Gagal mengupload file koreksi. Silakan coba lagi.')
   } finally {
     isUploading.value = false
   }

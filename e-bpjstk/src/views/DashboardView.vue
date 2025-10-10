@@ -48,19 +48,19 @@
                     <tbody>
                       <tr>
                         <td>Kode Tagihan</td>
-                        <td class="text-right">424101780000</td>
+                        <td class="text-right">{{ summary.kodeTagihan || '-' }}</td>
                       </tr>
                       <tr>
                         <td>Total Iuran dan Denda</td>
-                        <td class="text-right">Rp0</td>
+                        <td class="text-right">{{ formatCurrency(summary.totalIuranDanDenda) }}</td>
                       </tr>
                       <tr>
                         <td>Sisa Pembayaran Iuran Sebelumnya</td>
-                        <td class="text-right">Rp0</td>
+                        <td class="text-right">{{ formatCurrency(summary.sisaPembayaranSebelumnya) }}</td>
                       </tr>
                       <tr>
                         <td>Total Tagihan</td>
-                        <td class="text-right">Rp0</td>
+                        <td class="text-right">{{ formatCurrency(summary.totalTagihan) }}</td>
                       </tr>
                     </tbody>
                   </v-table>
@@ -85,7 +85,8 @@
                           hide-details
                           variant="outlined"
                           style="width: 84px"
-                          model-value="10"
+                          :model-value="pageSize"
+                          @update:modelValue="onChangePageSize"
                         ></v-select>
                         <span class="text-body-2 text-medium-emphasis">entries</span>
                       </div>
@@ -98,7 +99,8 @@
                           hide-details
                           variant="outlined"
                           style="min-width: 200px"
-                          model-value="Tampil Semua"
+                          :model-value="statusFilterLabel"
+                          @update:modelValue="onChangeStatusFilter"
                         ></v-select>
                       </div>
                     </div>
@@ -114,7 +116,7 @@
                           <th>Nominal Iuran (Rp)</th>
                           <th>Nominal Denda (Rp)</th>
                           <th>Status</th>
-                          <th style="width: 160px">Aksi</th>
+                          <th style="width: 200px">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -132,13 +134,20 @@
                           <td>
                             <div class="aksi-buttons">
                               <v-btn size="x-small" color="primary" variant="tonal" prepend-icon="mdi-pencil" @click="navigateToEdit(row)">Edit</v-btn>
-                              <v-btn size="x-small" variant="tonal" prepend-icon="mdi-printer">Cetak</v-btn>
-                              <v-btn size="x-small" variant="outlined" color="error" prepend-icon="mdi-delete">Hapus</v-btn>
+                              <v-btn size="x-small" variant="tonal" prepend-icon="mdi-printer" @click="onPrint(row)">Cetak</v-btn>
+                              <v-btn size="x-small" variant="outlined" color="error" prepend-icon="mdi-delete" @click="onDeletePeriod(row)">Hapus</v-btn>
                             </div>
                           </td>
                         </tr>
                       </tbody>
                     </v-table>
+                  </div>
+                  <div class="d-flex justify-space-between align-center mt-3">
+                    <div class="text-caption">Total: {{ totalRows }}</div>
+                    <div class="d-flex align-center" style="gap:8px">
+                      <span class="text-caption">Halaman</span>
+                      <v-select :items="Array.from({length: Math.max(1, Math.ceil(totalRows/pageSize))}, (_,i)=> i+1)" density="comfortable" hide-details variant="outlined" style="width:84px" :model-value="page" @update:modelValue="val => { page = Number(val)||1; loadReportPeriods() }" />
+                    </div>
                   </div>
                 </v-card>
               </v-col>
@@ -151,16 +160,30 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import apiService from '../services/api.js'
 
 const router = useRouter()
 const userEmail = ref('')
 const loginTime = ref('')
+const summary = ref({ kodeTagihan: '-', totalIuranDanDenda: 0, sisaPembayaranSebelumnya: 0, totalTagihan: 0 })
 
 // Data periode pelaporan dari API
 const reportRows = ref([])
+const totalRows = ref(0)
+let page = 1
+const pageSize = ref(10)
+const statusFilter = ref('all')
+const statusFilterLabel = computed(() => {
+  switch (statusFilter.value) {
+    case 'Draft': return 'Draft'
+    case 'Approval': return 'Approval'
+    case 'Finalisasi': return 'Finalisasi'
+    case 'Posting': return 'Posting'
+    default: return 'Tampil Semua'
+  }
+})
 
 onMounted(async () => {
   // Get user data from localStorage
@@ -184,14 +207,35 @@ onMounted(async () => {
   } else {
     loginTime.value = new Date().toLocaleString('id-ID')
   }
-  // Muat data periode pelaporan dari API
+  await Promise.all([
+    loadReportPeriods(),
+    loadSummary(),
+  ])
+})
+
+const loadReportPeriods = async () => {
   try {
-    const data = await apiService.getReportPeriods()
-    reportRows.value = Array.isArray(data) ? data : []
+    const res = await apiService.getReportPeriods({ page, pageSize: pageSize.value, status: statusFilter.value })
+    if (res && Array.isArray(res.items)) {
+      reportRows.value = res.items
+      totalRows.value = res.total || res.items.length
+    } else if (Array.isArray(res)) {
+      reportRows.value = res
+      totalRows.value = res.length
+    }
   } catch (e) {
     console.error('Gagal memuat periode pelaporan', e)
   }
-})
+}
+
+const loadSummary = async () => {
+  try {
+    const data = await apiService.getReportSummary()
+    if (data) summary.value = data
+  } catch (e) {
+    console.error('Gagal memuat ringkasan', e)
+  }
+}
 
 const handleLogout = async () => {
   try {
@@ -218,11 +262,61 @@ const navigateToEdit = (row) => {
 const addPeriod = async () => {
   try {
     await apiService.createReportPeriod({})
-    const data = await apiService.getReportPeriods()
-    reportRows.value = Array.isArray(data) ? data : []
+    await loadReportPeriods()
     alert('Periode pelaporan berhasil ditambahkan')
   } catch (e) {
     alert(e?.message || 'Gagal menambah periode pelaporan')
+  }
+}
+
+const onChangeStatusFilter = async (label) => {
+  const map = { 'Tampil Semua': 'all', 'Draft': 'Draft', 'Approval': 'Approval', 'Finalisasi': 'Finalisasi', 'Posting': 'Posting' }
+  statusFilter.value = map[label] || 'all'
+  page = 1
+  await loadReportPeriods()
+}
+
+const onChangePageSize = async (val) => {
+  pageSize.value = Number(val) || 10
+  page = 1
+  await loadReportPeriods()
+}
+
+const onDeletePeriod = async (row) => {
+  if (!confirm('Hapus periode ini? Hanya status Draft bisa dihapus.')) return
+  try {
+    await apiService.deleteReportPeriod(row.id)
+    await loadReportPeriods()
+  } catch (e) {
+    alert(e?.message || 'Gagal menghapus periode')
+  }
+}
+
+const onCalculate = async (row) => {
+  try {
+    await apiService.calculateReportPeriod(row.id)
+    await loadReportPeriods()
+  } catch (e) {
+    alert(e?.message || 'Gagal menghitung iuran')
+  }
+}
+
+const onFinalize = async (row) => {
+  if (!confirm('Finalisasi periode ini?')) return
+  try {
+    await apiService.finalizeReportPeriod(row.id)
+    await loadReportPeriods()
+  } catch (e) {
+    alert(e?.message || 'Gagal finalisasi')
+  }
+}
+
+const onPrint = async (row) => {
+  try {
+    const res = await apiService.printReportPeriod(row.id)
+    alert('Print-ready: ' + (res?.message || 'OK'))
+  } catch (e) {
+    alert(e?.message || 'Gagal cetak')
   }
 }
 
