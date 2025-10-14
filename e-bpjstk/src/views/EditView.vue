@@ -93,12 +93,13 @@
               <div class="d-flex align-center justify-center mb-6 filter-search-container">
                 <div class="d-flex align-center gap-2">
                   <v-select
-                    :items="['Peserta Aktif']"
+                    :items="filterOptions"
                     density="comfortable"
                     hide-details
                     variant="outlined"
                     class="filter-select"
-                    model-value="Peserta Aktif"
+                    v-model="selectedFilter"
+                    @update:model-value="onFilterChange"
                     style="
                       width: 150px !important;
                       min-width: 150px !important;
@@ -113,6 +114,7 @@
                     prepend-icon="mdi-refresh"
                     class="filter-btn"
                     size="default"
+                    @click="loadWorkers"
                     style="
                       width: 150px !important;
                       min-width: 150px !important;
@@ -391,7 +393,7 @@ const iuranCards = ref([
 // Action buttons data
 const actionButtons = ref([
   {
-    label: '+ TAMBAH TK',
+    label: 'TAMBAH TK',
     color: 'success',
     icon: 'mdi-plus',
     action: 'tambah-tk',
@@ -431,28 +433,120 @@ const actionButtons = ref([
 // Table data dari API workers
 import apiService from '../services/api.js'
 const tableData = ref([])
+const allWorkers = ref([]) // Store all workers data
 const editing = ref(false)
 const editItem = ref({ id: null, nik: '', kpj: '', noPegawai: '', nama: '', upah: 0, rapel: 0 })
 
-onMounted(async () => {
-  // Show notification modal first when page loads
-  showNotificationModal.value = true
+// Filter state - default to show all workers
+const selectedFilter = ref('Semua Data')
+const filterOptions = [
+  { title: 'Semua Data', value: 'semua' },
+  { title: 'Peserta Aktif', value: 'aktif' },
+  { title: 'Peserta Non Aktif', value: 'non-aktif' },
+  { title: 'Peserta Baru', value: 'baru' }
+]
+
+// Load workers data
+const loadWorkers = async () => {
   try {
     const rows = await apiService.getWorkers()
-    tableData.value = Array.isArray(rows)
-      ? rows.map((r) => ({
-          id: r.id,
-          nik: r.nik,
-          kpj: r.kpj,
-          noPegawai: r.noPegawai,
-          nama: r.nama,
-          upah: new Intl.NumberFormat('id-ID', { style: 'decimal', minimumFractionDigits: 2 }).format(r.upah || 0),
-          rapel: new Intl.NumberFormat('id-ID', { style: 'decimal', minimumFractionDigits: 2 }).format(r.rapel || 0),
-        }))
-      : []
+    allWorkers.value = Array.isArray(rows) ? rows : []
+    applyFilter()
   } catch (e) {
     console.error('Gagal memuat workers', e)
   }
+}
+
+// Apply filter based on selected option
+const applyFilter = () => {
+  let filteredWorkers = [...allWorkers.value]
+  
+  switch (selectedFilter.value) {
+    case 'semua':
+      // Semua Data: tampilkan semua workers
+      filteredWorkers = allWorkers.value
+      break
+    case 'aktif':
+      // Peserta Aktif: workers dengan upah > 0 dan tidak ada tanggal akhir kontrak
+      filteredWorkers = allWorkers.value.filter(worker => 
+        (worker.upah > 0) && 
+        (!worker.tanggalAkhirKontrak || worker.tanggalAkhirKontrak === null)
+      )
+      break
+    case 'non-aktif':
+      // Peserta Non Aktif: workers dengan tanggal akhir kontrak yang sudah lewat
+      filteredWorkers = allWorkers.value.filter(worker => {
+        if (!worker.tanggalAkhirKontrak) return false
+        const endDate = new Date(worker.tanggalAkhirKontrak)
+        const today = new Date()
+        return endDate < today
+      })
+      break
+    case 'baru': {
+      // Peserta Baru: workers yang baru dibuat dalam 30 hari terakhir
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      filteredWorkers = allWorkers.value.filter(worker => {
+        const createdDate = new Date(worker.createdAt)
+        return createdDate > thirtyDaysAgo
+      })
+      break
+    }
+    default:
+      filteredWorkers = allWorkers.value
+  }
+  
+  // Format data for table display
+  tableData.value = filteredWorkers.map((r) => ({
+    id: r.id,
+    nik: r.nik,
+    kpj: r.kpj,
+    noPegawai: r.noPegawai,
+    nama: r.nama,
+    upah: new Intl.NumberFormat('id-ID', { style: 'decimal', minimumFractionDigits: 2 }).format(r.upah || 0),
+    rapel: new Intl.NumberFormat('id-ID', { style: 'decimal', minimumFractionDigits: 2 }).format(r.rapel || 0),
+  }))
+  
+  // Update summary cards
+  updateSummaryCards(filteredWorkers)
+}
+
+// Update summary cards based on filtered data
+const updateSummaryCards = (workers) => {
+  const totalWorkers = workers.length
+  const totalUpah = workers.reduce((sum, worker) => sum + (worker.upah || 0) + (worker.rapel || 0), 0)
+  const totalIuran = totalWorkers * 29700 // Rp 29.700 per worker
+  const totalDenda = totalIuran * 0.02 // 2% denda
+  
+  summaryCards.value[0].value = totalWorkers.toString()
+  summaryCards.value[1].value = new Intl.NumberFormat('id-ID', { 
+    style: 'currency', 
+    currency: 'IDR',
+    minimumFractionDigits: 2 
+  }).format(totalUpah)
+  summaryCards.value[2].value = new Intl.NumberFormat('id-ID', { 
+    style: 'currency', 
+    currency: 'IDR',
+    minimumFractionDigits: 2 
+  }).format(totalIuran)
+  summaryCards.value[3].value = new Intl.NumberFormat('id-ID', { 
+    style: 'currency', 
+    currency: 'IDR',
+    minimumFractionDigits: 2 
+  }).format(totalDenda)
+}
+
+// Handle filter change
+const onFilterChange = (value) => {
+  selectedFilter.value = value
+  applyFilter()
+}
+
+onMounted(async () => {
+  // Load workers data immediately
+  await loadWorkers()
+  // Show notification modal after data is loaded
+  showNotificationModal.value = true
 })
 
 const openEdit = (row) => {
@@ -469,18 +563,7 @@ const saveEdit = async () => {
       upah: editItem.value.upah,
       rapel: editItem.value.rapel,
     })
-    const rows = await apiService.getWorkers()
-    tableData.value = Array.isArray(rows)
-      ? rows.map((r) => ({
-          id: r.id,
-          nik: r.nik,
-          kpj: r.kpj,
-          noPegawai: r.noPegawai,
-          nama: r.nama,
-          upah: new Intl.NumberFormat('id-ID', { style: 'decimal', minimumFractionDigits: 2 }).format(r.upah || 0),
-          rapel: new Intl.NumberFormat('id-ID', { style: 'decimal', minimumFractionDigits: 2 }).format(r.rapel || 0),
-        }))
-      : []
+    await loadWorkers()
     editing.value = false
   } catch (e) {
     alert(e?.message || 'Gagal menyimpan perubahan')
@@ -491,7 +574,7 @@ const confirmDelete = async (row) => {
   if (!confirm('Hapus data karyawan ini?')) return
   try {
     await apiService.deleteWorker(row.id)
-    tableData.value = tableData.value.filter((r) => r.id !== row.id)
+    await loadWorkers() // Reload data and apply current filter
   } catch (e) {
     alert(e?.message || 'Gagal menghapus data')
   }

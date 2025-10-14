@@ -47,6 +47,17 @@ const router = createRouter({
       component: () => import('../views/AddWorkerView.vue'),
     },
     {
+      path: '/tenaga/form-lanjutan/:id?',
+      name: 'registration-form',
+      component: () => import('../views/RegistrationFormView.vue'),
+      props: true,
+      beforeEnter: (to, from, next) => {
+        const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'
+        if (isLoggedIn) next()
+        else next('/login')
+      },
+    },
+    {
       path: '/tenaga/upload',
       name: 'upload-worker',
       component: () => import('../views/UploadWorkerView.vue'),

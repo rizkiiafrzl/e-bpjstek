@@ -1,3 +1,44 @@
+Database schema updates
+=======================
+
+Workers table - new columns
+---------------------------
+
+If your database already exists, add the following columns to table `workers` to support the new Registration form fields. These statements are idempotent-safe if you check existence first.
+
+PostgreSQL ALTER TABLE:
+
+```sql
+-- Identity & personal
+ALTER TABLE workers
+  ADD COLUMN IF NOT EXISTS tempat_lahir text,
+  ADD COLUMN IF NOT EXISTS ibu_kandung text,
+  ADD COLUMN IF NOT EXISTS jenis_kelamin varchar(1),
+  ADD COLUMN IF NOT EXISTS gol_darah varchar(3),
+  ADD COLUMN IF NOT EXISTS status_kawin varchar(20);
+
+-- Employment
+ALTER TABLE workers
+  ADD COLUMN IF NOT EXISTS status_pegawai varchar(16),
+  ADD COLUMN IF NOT EXISTS tanggal_awal_bekerja date,
+  ADD COLUMN IF NOT EXISTS tanggal_akhir_kontrak date,
+  ADD COLUMN IF NOT EXISTS lokasi_pekerjaan varchar(120);
+
+-- Contact & address
+ALTER TABLE workers
+  ADD COLUMN IF NOT EXISTS alamat text,
+  ADD COLUMN IF NOT EXISTS kabupaten varchar(120),
+  ADD COLUMN IF NOT EXISTS kode_pos varchar(10),
+  ADD COLUMN IF NOT EXISTS telepon_rumah varchar(32),
+  ADD COLUMN IF NOT EXISTS handphone varchar(32),
+  ADD COLUMN IF NOT EXISTS npwp varchar(32),
+  ADD COLUMN IF NOT EXISTS email varchar(200);
+```
+
+Notes
+-----
+- The Go model `models/Worker` already includes these fields; `database.Migrate()` (GORM AutoMigrate) will also create them on fresh databases. For existing databases, run the ALTERs above.
+- Adjust sizes to your policy if needed.
 # Farm Management Backend
 
 Backend API untuk aplikasi Farm Management menggunakan Go Fiber dan PostgreSQL.

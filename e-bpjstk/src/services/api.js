@@ -42,17 +42,53 @@ class ApiService {
       ...options,
     }
 
+    console.log('API Service - Making request:', {
+      url,
+      method: config.method || 'GET',
+      headers: config.headers,
+      body: config.body
+    })
+
     try {
       const response = await fetch(url, config)
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`)
+      console.log('API Service - Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      })
+      
+      // gracefully handle empty bodies (e.g., 204 No Content)
+      const contentType = response.headers.get('content-type') || ''
+      let data
+      if (response.status === 204 || contentType.indexOf('application/json') === -1) {
+        const text = await response.text()
+        data = text ? JSON.parse(text) : null
+      } else {
+        const text = await response.text()
+        data = text ? JSON.parse(text) : null
       }
 
+      if (!response.ok) {
+        const message = (data && (data.error || data.message)) || `HTTP error! status: ${response.status}`
+        console.error('API Service - Request failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          message,
+          data
+        })
+        throw new Error(message)
+      }
+
+      console.log('API Service - Request successful:', data)
+      // return parsed json (or null) so callers can decide
       return data
     } catch (error) {
-      console.error('API request failed:', error)
+      console.error('API Service - Request error:', {
+        message: error.message,
+        stack: error.stack,
+        url,
+        config
+      })
       throw error
     }
   }
@@ -149,10 +185,9 @@ class ApiService {
   }
 
   // Report Periods
-  async getReportPeriods() {
-    return this.request('/report-periods', {
-      method: 'GET',
-    })
+  async getReportPeriods({ page = 1, pageSize = 10, status = 'all' } = {}) {
+    const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize), status })
+    return this.request(`/report-periods?${qs.toString()}`, { method: 'GET' })
   }
 
   async createReportPeriod(payload = {}) {
@@ -160,6 +195,145 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(payload),
     })
+  }
+
+  async deleteReportPeriod(id) {
+    return this.request(`/report-periods/${id}`, { method: 'DELETE' })
+  }
+
+  async calculateReportPeriod(id) {
+    return this.request(`/report-periods/${id}/calculate`, { method: 'POST' })
+  }
+
+  async finalizeReportPeriod(id) {
+    return this.request(`/report-periods/${id}/finalize`, { method: 'POST' })
+  }
+
+  async printReportPeriod(id) {
+    return this.request(`/report-periods/${id}/print`, { method: 'GET' })
+  }
+
+  // Dashboard summary
+  async getReportSummary() {
+    return this.request('/report-periods-summary', { method: 'GET' })
+  }
+
+  // Upload Workers (mass upload)
+  async uploadWorkers(file) {
+    const form = new FormData()
+    form.append('file', file)
+    // Don't set Content-Type explicitly; let browser set multipart boundary
+    return fetch(`${this.baseURL}/workers/upload`, {
+      method: 'POST',
+      headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
+      body: form,
+    }).then(async (res) => {
+      const text = await res.text()
+      const data = text ? JSON.parse(text) : null
+      if (!res.ok) {
+        const message = (data && (data.error || data.message)) || `HTTP error! status: ${res.status}`
+        throw new Error(message)
+      }
+      return data
+    })
+  }
+
+  // Upload TK (Tenaga Kerja)
+  async uploadTK(file) {
+    const form = new FormData()
+    form.append('file', file)
+    // Don't set Content-Type explicitly; let browser set multipart boundary
+    return fetch(`${this.baseURL}/workers/upload-tk`, {
+      method: 'POST',
+      headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
+      body: form,
+    }).then(async (res) => {
+      const text = await res.text()
+      const data = text ? JSON.parse(text) : null
+      if (!res.ok) {
+        const message = (data && (data.error || data.message)) || `HTTP error! status: ${res.status}`
+        throw new Error(message)
+      }
+      return data
+    })
+  }
+
+  // Upload Upah (Wage Data)
+  async uploadUpah(file) {
+    const form = new FormData()
+    form.append('file', file)
+    // Don't set Content-Type explicitly; let browser set multipart boundary
+    return fetch(`${this.baseURL}/workers/upload-upah`, {
+      method: 'POST',
+      headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
+      body: form,
+    }).then(async (res) => {
+      const text = await res.text()
+      const data = text ? JSON.parse(text) : null
+      if (!res.ok) {
+        const message = (data && (data.error || data.message)) || `HTTP error! status: ${res.status}`
+        throw new Error(message)
+      }
+      return data
+    })
+  }
+
+  // Koreksi TK (Correction of Worker Data)
+  async koreksiTK(file) {
+    const form = new FormData()
+    form.append('file', file)
+    // Don't set Content-Type explicitly; let browser set multipart boundary
+    return fetch(`${this.baseURL}/koreksi-data-tk`, {
+      method: 'POST',
+      headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
+      body: form,
+    }).then(async (res) => {
+      const text = await res.text()
+      const data = text ? JSON.parse(text) : null
+      if (!res.ok) {
+        const message = (data && (data.error || data.message)) || `HTTP error! status: ${res.status}`
+        throw new Error(message)
+      }
+      return data
+    })
+  }
+
+  async getUploadHistory() {
+    return this.request('/workers/upload-history', { method: 'GET' })
+  }
+
+  async downloadErrorFile(id) {
+    const url = `${this.baseURL}/workers/upload-history/${id}/download`
+    const config = {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+      },
+    }
+    try {
+      const response = await fetch(url, config)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+      return response.blob() // Return blob for file download
+    } catch (error) {
+      console.error('API request failed:', error)
+      throw error
+    }
+  }
+
+  async deleteUploadHistory(id) {
+    console.log('API Service - deleteUploadHistory called with ID:', id)
+    console.log('API Service - baseURL:', this.baseURL)
+    console.log('API Service - token:', this.token ? 'Present' : 'Missing')
+    
+    const result = await this.request(`/workers/upload-history/${id}`, {
+      method: 'DELETE',
+    })
+    
+    console.log('API Service - deleteUploadHistory result:', result)
+    return result
   }
 
   // Workers
@@ -172,6 +346,7 @@ class ApiService {
   }
 
   async createWorker(worker) {
+    console.log('API Service - createWorker called with:', worker)
     return this.request('/workers', {
       method: 'POST',
       body: JSON.stringify(worker),
