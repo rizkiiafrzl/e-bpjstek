@@ -44,6 +44,7 @@ func Migrate(db *DB) error {
 		&models.ReportPeriod{},
 		&models.Worker{},
 		&models.UploadHistory{},
+		&models.MasterLokasi{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to migrate database: %w", err)

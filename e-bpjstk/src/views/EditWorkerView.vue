@@ -145,6 +145,8 @@
                     label="Tanggal Akhir Kontrak: *"
                     type="date"
                     variant="outlined"
+                    :disabled="form.statusPegawai === 'PKWTT'"
+                    :class="{ 'disabled-field': form.statusPegawai === 'PKWTT' }"
                     :rules="[(v) => form.statusPegawai === 'PKWT' ? (!!v || 'Wajib diisi untuk PKWT') : true]"
                   />
                 </v-col>
@@ -156,9 +158,12 @@
               />
               <v-select
                 v-model="form.lokasiPekerjaan"
-                :items="lokasiPekerjaanItems"
+                :items="lokasiOptions"
+                item-title="nama"
+                item-value="nama"
                 label="Lokasi Pekerjaan: *"
                 variant="outlined"
+                :loading="loadingLokasi"
                 :rules="[(v) => !!v || 'Wajib diisi']"
               />
               <v-text-field
@@ -183,9 +188,12 @@
               />
               <v-select
                 v-model="form.kabupaten"
-                :items="kabupatenItems"
+                :items="lokasiOptions"
+                item-title="nama"
+                item-value="nama"
                 label="Kabupaten: *"
                 variant="outlined"
+                :loading="loadingLokasi"
                 :rules="[(v) => !!v || 'Wajib diisi']"
               />
               <v-text-field
@@ -308,6 +316,16 @@
       </v-card>
     </v-container>
   </div>
+
+  <!-- Success Dialog -->
+  <v-dialog v-model="successOpen" persistent max-width="400">
+    <v-card class="mx-auto">
+      <v-card-text class="text-center pa-4">
+        <div class="text-body-1 mb-4">Data worker berhasil diperbarui!</div>
+        <v-btn color="primary" @click="goBack">OK</v-btn>
+      </v-card-text>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup>
@@ -321,7 +339,7 @@ const workerId = route.params.id
 
 // Breadcrumbs
 const breadcrumbs = ref([
-  { title: 'Data Tenaga Kerja', disabled: false, href: '/edit' },
+  { title: 'Data Tenaga Kerja', disabled: false, href: '/edit/data' },
   { title: 'Edit Tenaga Kerja', disabled: true },
 ])
 
@@ -330,6 +348,7 @@ const formRef = ref(null)
 const loading = ref(true)
 const error = ref(null)
 const isSubmitting = ref(false)
+const successOpen = ref(false)
 
 // Form data
 const form = reactive({
@@ -368,14 +387,22 @@ const passportMenu = ref(false)
 const tanggalAwalBekerja = ref('')
 const tanggalAkhirKontrak = ref('')
 
-// Dropdown items
-const lokasiPekerjaanItems = [
-  'ACEH BARAT','ACEH BARAT DAYA','ACEH BESAR','ACEH JAYA','ACEH SELATAN','ACEH TENGAH','ACEH TENGGARA','BANDA ACEH','MEDAN','DELISERDANG','TEBING TINGGI','PADANG','BUKITTINGGI','PEKANBARU','BATAM','TANJUNGPINANG','JAMBI','PALEMBANG','BENGKULU','BANDAR LAMPUNG','JAKARTA PUSAT','JAKARTA SELATAN','JAKARTA TIMUR','JAKARTA BARAT','JAKARTA UTARA','TANGERANG','BEKASI','DEPOK','BOGOR','BANDUNG','CIREBON','CIMAHI','SEMARANG','SOLO','MAGELANG','PEKALONGAN','TEGAL','YOGYAKARTA','SURABAYA','MALANG','KEDIRI','MADIUN','GRESIK','SIDOARJO','SERANG','CILEGON','DENPASAR','MATARAM','KUPANG','PONTIANAK','BANJARMASIN','BALIKPAPAN','SAMARINDA','TANJUNGPINANG','MANADO','PALU','MAKASSAR','KENDARI','AMBON','TERNATE','JAYAPURA'
-]
+// Master Lokasi options fetched from backend
+const lokasiOptions = ref([])
+const loadingLokasi = ref(false)
 
-const kabupatenItems = [
-  'ACEH BARAT','ACEH BARAT DAYA','ACEH BESAR','ACEH JAYA','ACEH SELATAN','ACEH SINGKIL','ACEH TAMIANG','ACEH TENGAH','ACEH TENGGARA','ACEH TIMUR','ACEH UTARA','BENER MERIAH','PIDIE','PIDIE JAYA','SIMEULUE','KOTA BANDA ACEH','KOTA LHOKSEUMAWE','KOTA LANGSA','KOTA SABANG','KARO','DELI SERDANG','LANGKAT','ASAHAN','BATU BARA','LABUHANBATU','LABUHANBATU UTARA','LABUHANBATU SELATAN','SIMALUNGUN','SAMOSIR','TOBA','HUMBANG HASUNDUTAN','DAIRI','TAPANULI UTARA','TAPANULI TENGAH','TAPANULI SELATAN','NIAS','NIAS UTARA','NIAS SELATAN','NIAS BARAT','KOTA MEDAN','KOTA BINJAI','KOTA TEBING TINGGI','AGAM','LIMA PULUH KOTA','PADANG PARIAMAN','PASAMAN','PASAMAN BARAT','PESISIR SELATAN','SIJUNJUNG','SOLOK','TANAH DATAR','KOTA PADANG','KOTA BUKITTINGGI','KOTA PAYAKUMBUH','ROKAN HILIR','ROKAN HULU','SIAK','PELALAWAN','INDRAGIRI HULU','INDRAGIRI HILIR','KAMPAR','BENGKALIS','KEPULAUAN MERANTI','KOTA PEKANBARU','BINTAN','KARIMUN','LINGGA','NATUNA','ANAMBAS','KOTA BATAM','KOTA TANJUNGPINANG','BANGKA','BELITUNG','BANGKA BARAT','BANGKA SELATAN','BANGKA TENGAH','BELITUNG TIMUR','KOTA PANGKAL PINANG','KEPULAUAN SERIBU','KOTA ADM. JAKARTA PUSAT','KOTA ADM. JAKARTA UTARA','KOTA ADM. JAKARTA BARAT','KOTA ADM. JAKARTA SELATAN','KOTA ADM. JAKARTA TIMUR','BOGOR','SUKABUMI','CIANJUR','BANDUNG','GARUT','TASIKMALAYA','CIAMIS','KUNINGAN','CIREBON','MAJALENGKA','SUMEDANG','INDRAMAYU','SUBANG','PURWAKARTA','KARAWANG','BEKASI','KOTA BOGOR','KOTA SUKABUMI','KOTA BANDUNG','KOTA CIREBON','KOTA BEKASI','KOTA DEPOK','BANJAR','SEMARANG','KUDUS','PATi','REMBANG','BLORA','GROBOGAN','DEMAK','KENDAL','BATANG','PEKALONGAN','PEMALANG','TEGAL','BREBES','MAGELANG','TEMANGGUNG','WONOSOBO','PURWOREJO','KEBUMEN','BANYUMAS','PURBALINGGA','BANJARNEGARA','CILACAP','SLEMAN','BANTUL','GUNUNGKIDUL','KULON PROGO','KOTA YOGYAKARTA','SURABAYA','SIDOARJO','GRESIK','LAMONGAN','TUBAN','BOJONEGORO','MADIUN','NGAWI','MAGETAN','PONOROGO','PACITAN','KEDIRI','BLITAR','TULUNGAGUNG','TRENGGALEK','MALANG','PASURUAN','PROBOLINGGO','LUMAJANG','JEMBER','BONDOWOSO','SITUBONDO','BANYUWANGI','PANDEGLANG','LEBAK','SERANG','TANGERANG','KOTA SERANG','KOTA CILEGON','KOTA TANGERANG','KOTA TANGERANG SELATAN','DENPASAR','BADUNG','TABANAN','BANGLI','GIANYAR','KLUNGKUNG','BULELENG','JEMBRANA','MATARAM','LOMBOK BARAT','LOMBOK TENGAH','LOMBOK TIMUR','SUMBAWA','DOMPU','BIMA','KUPANG','TIMOR TENGAH SELATAN','TIMOR TENGAH UTARA','BELU','ALOR','ENDE','Sikka','FLORES TIMUR','SUMBA TIMUR','SUMBA BARAT','PONTIANAK','KUBU RAYA','SAMBAS','SINGKAWANG','SANGGAU','KETAPANG','SINTANG','MELAWI','KAPUAS HULU','LANDAK','BANJARMASIN','BANJARBARU','TANAH LAUT','TANAH BUMBU','KOTABARU','HULU SUNGAI SELATAN','BARITO KUALA','BALIKPAPAN','SAMARINDA','BONTANG','PASER','PENAJAM PASER UTARA','KUTAI BARAT','KUTAI TIMUR','KUTAI KARTANEGARA','MANADO','BITUNG','TOMOHON','MINAHASA','BOLAANG MONGONDOW','PALU','SIGI','DONGGALA','PARIGI MOUTONG','MAKASSAR','GOWA','TAKALAR','MAROS','BONE','WATAMPONE','PAREPARE','KENDARI','KONAWE','KONAWE SELATAN','AMBON','MALUKU TENGAH','TERNATE','TIDORE','HALMAHERA BARAT','HALMAHERA TENGAH','JAYAPURA','MERAUKE'
-]
+const loadMasterLokasi = async () => {
+  try {
+    loadingLokasi.value = true
+    const data = await apiService.getMasterLokasi()
+    lokasiOptions.value = Array.isArray(data) ? data : []
+  } catch (e) {
+    console.error('Gagal memuat master lokasi', e)
+    lokasiOptions.value = []
+  } finally {
+    loadingLokasi.value = false
+  }
+}
 
 // Load worker data
 const loadWorkerData = async () => {
@@ -592,8 +619,7 @@ const handleSubmit = async () => {
       email: form.email,
     })
 
-    alert('Data worker berhasil diperbarui!')
-    goBack()
+    successOpen.value = true
   } catch (e) {
     console.error('Error updating worker:', e)
     alert(e?.message || 'Gagal memperbarui data worker')
@@ -604,11 +630,12 @@ const handleSubmit = async () => {
 
 // Navigation
 const goBack = () => {
-  router.push('/edit')
+  router.push('/edit/data')
 }
 
 // Load data on mount
-onMounted(() => {
+onMounted(async () => {
+  await loadMasterLokasi()
   loadWorkerData()
 })
 </script>

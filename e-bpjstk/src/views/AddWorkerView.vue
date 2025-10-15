@@ -244,7 +244,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import TraditionalCaptcha from '../components/TraditionalCaptcha.vue'
 import apiService from '../services/api.js'
@@ -253,7 +253,7 @@ const router = useRouter()
 const props = defineProps({ id: { type: [String, Number], required: false } })
 
 const formRef = ref(null)
-const form = ref({ nik: '', nama: '', nationality: 'WNI', passportNo: '', passportValidUntil: '', kpj: '' })
+const form = ref({ nik: '', nama: '', nationality: 'WNI', passportNo: '', passportValidUntil: '', kpj: '', lokasiPekerjaanKode: '', lokasiPekerjaanNama: '', statusPegawai: '' })
 const dob = ref('') // YYYY-MM-DD
 const dobMenu = ref(false)
 const passportValidUntil = ref('') // YYYY-MM-DD
@@ -261,6 +261,12 @@ const passportMenu = ref(false)
 const captchaValue = ref('')
 const captchaVerified = ref(false)
 const captchaRef = ref(null)
+const tanggalAwalBekerja = ref('')
+const tanggalAkhirKontrak = ref('')
+
+// Master lokasi
+const lokasiOptions = ref([])
+const loadingLokasi = ref(false)
 
 // Precheck (gabung jadi satu dialog)
 const dlgPrecheck = ref(false)
@@ -274,6 +280,9 @@ const dlgSuccess = ref(false)
 const dlgConsent = ref(false)
 
 onMounted(async () => {
+  // Load master lokasi
+  await loadMasterLokasi()
+  
   if (props.id && String(props.id).length > 0) {
     // Editing mode: load worker and prefill
     try {
@@ -349,6 +358,13 @@ const finishPrecheck = () => {
     console.log('Form KPJ set to:', form.value.kpj)
   }
 }
+
+// Watch statusPegawai: clear end date for PKWTT
+watch(() => form.value.statusPegawai, (val) => {
+  if (val === 'PKWTT') {
+    tanggalAkhirKontrak.value = ''
+  }
+})
 
 const onCaptcha = (val) => {
   console.log('CAPTCHA verified with value:', val)
@@ -478,6 +494,22 @@ const submit = async () => {
     return
   }
   
+  // Validasi aturan PKWT/PKWTT
+  if (form.value.statusPegawai === 'PKWT') {
+    if (!tanggalAkhirKontrak.value) {
+      alert('Tanggal akhir kontrak wajib diisi untuk PKWT')
+      return
+    }
+    if (tanggalAwalBekerja.value && tanggalAkhirKontrak.value < tanggalAwalBekerja.value) {
+      alert('Tanggal akhir kontrak tidak boleh sebelum tanggal awal bekerja')
+      return
+    }
+  }
+  if (form.value.statusPegawai === 'PKWTT') {
+    // pastikan dikosongkan
+    tanggalAkhirKontrak.value = ''
+  }
+
   console.log('All validations passed, showing consent dialog...')
   dlgConsent.value = true
 }
@@ -502,6 +534,11 @@ const agreeConsent = async () => {
     nationality: form.value.nationality,
     passportNo: form.value.nationality === 'WNA' ? form.value.passportNo : '',
     passportValidUntil: form.value.nationality === 'WNA' ? passportValidUntil.value : '',
+    lokasiPekerjaanKode: form.value.lokasiPekerjaanKode || '',
+    lokasiPekerjaanNama: form.value.lokasiPekerjaanNama || '',
+    statusPegawai: form.value.statusPegawai,
+    tanggalAwalBekerja: tanggalAwalBekerja.value,
+    tanggalAkhirKontrak: form.value.statusPegawai === 'PKWT' ? tanggalAkhirKontrak.value : '',
   }
   
   // Debug logging
@@ -530,6 +567,22 @@ const agreeConsent = async () => {
 const rejectConsent = () => {
   dlgConsent.value = false
 }
+
+// Load master lokasi
+const loadMasterLokasi = async () => {
+  loadingLokasi.value = true
+  try {
+    const response = await apiService.getMasterLokasi()
+    lokasiOptions.value = response || []
+  } catch (error) {
+    console.error('Error loading master lokasi:', error)
+  } finally {
+    loadingLokasi.value = false
+  }
+}
+
+// Handle lokasi change
+
 </script>
 
 <style scoped>

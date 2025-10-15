@@ -31,10 +31,10 @@
                   <v-text-field v-model="form.tanggalAkhirKontrak" label="Tanggal Akhir Kontrak: *" type="date" variant="outlined" :rules="[rules.requiredIfPKWT]" />
                 </v-col>
               </v-row>
-              <v-select v-model="form.lokasiPekerjaan" :items="lokasiPekerjaanItems" label="Lokasi Pekerjaan: *" variant="outlined" :rules="[rules.required]" />
+              <v-select v-model="form.lokasiPekerjaan" :items="lokasiOptions" item-title="nama" item-value="nama" label="Lokasi Pekerjaan: *" variant="outlined" :loading="loadingLokasi" :rules="[rules.required]" />
               <v-text-field v-model.number="form.upah" label="Upah: *" type="number" variant="outlined" :rules="[rules.required, rules.nonNegative]" />
               <v-text-field v-model="form.alamat" label="Alamat: *" variant="outlined" :rules="[rules.required]" />
-              <v-select v-model="form.kabupaten" :items="kabupatenItems" label="Kabupaten: *" variant="outlined" :rules="[rules.required]" />
+              <v-select v-model="form.kabupaten" :items="lokasiOptions" item-title="nama" item-value="nama" label="Kabupaten: *" variant="outlined" :loading="loadingLokasi" :rules="[rules.required]" />
               <v-text-field v-model="form.kodePos" label="Kode Pos: *" variant="outlined" :rules="[rules.required, rules.kodePos]" />
               <v-text-field v-model="form.teleponRumah" label="Nomor Telepon Rumah" variant="outlined" />
               <v-text-field v-model="form.handphone" label="Handphone" variant="outlined" />
@@ -135,13 +135,9 @@ const statusKawinItems = [
   { title: 'BELUM KAWIN', value: 'BELUM KAWIN' },
 ]
 
-// Placeholder lists resembling long options (expanded)
-const lokasiPekerjaanItems = [
-  '-Pilih-','ACEH BARAT','ACEH BARAT DAYA','ACEH BESAR','ACEH JAYA','ACEH SELATAN','ACEH TENGAH','ACEH TENGGARA','BANDA ACEH','MEDAN','DELISERDANG','TEBING TINGGI','PADANG','BUKITTINGGI','PEKANBARU','BATAM','TANJUNGPINANG','JAMBI','PALEMBANG','BENGKULU','BANDAR LAMPUNG','JAKARTA PUSAT','JAKARTA SELATAN','JAKARTA TIMUR','JAKARTA BARAT','JAKARTA UTARA','TANGERANG','BEKASI','DEPOK','BOGOR','BANDUNG','CIREBON','CIMAHI','SEMARANG','SOLO','MAGELANG','PEKALONGAN','TEGAL','YOGYAKARTA','SURABAYA','MALANG','KEDIRI','MADIUN','GRESIK','SIDOARJO','SERANG','CILEGON','DENPASAR','MATARAM','KUPANG','PONTIANAK','BANJARMASIN','BALIKPAPAN','SAMARINDA','TANJUNGPINANG','MANADO','PALU','MAKASSAR','KENDARI','AMBON','TERNATE','JAYAPURA'
-]
-const kabupatenItems = [
-  '-Pilih-','ACEH BARAT','ACEH BARAT DAYA','ACEH BESAR','ACEH JAYA','ACEH SELATAN','ACEH SINGKIL','ACEH TAMIANG','ACEH TENGAH','ACEH TENGGARA','ACEH TIMUR','ACEH UTARA','BENER MERIAH','PIDIE','PIDIE JAYA','SIMEULUE','KOTA BANDA ACEH','KOTA LHOKSEUMAWE','KOTA LANGSA','KOTA SABANG','KARO','DELI SERDANG','LANGKAT','ASAHAN','BATU BARA','LABUHANBATU','LABUHANBATU UTARA','LABUHANBATU SELATAN','SIMALUNGUN','SAMOSIR','TOBA','HUMBANG HASUNDUTAN','DAIRI','TAPANULI UTARA','TAPANULI TENGAH','TAPANULI SELATAN','NIAS','NIAS UTARA','NIAS SELATAN','NIAS BARAT','KOTA MEDAN','KOTA BINJAI','KOTA TEBING TINGGI','AGAM','LIMA PULUH KOTA','PADANG PARIAMAN','PASAMAN','PASAMAN BARAT','PESISIR SELATAN','SIJUNJUNG','SOLOK','TANAH DATAR','KOTA PADANG','KOTA BUKITTINGGI','KOTA PAYAKUMBUH','ROKAN HILIR','ROKAN HULU','SIAK','PELALAWAN','INDRAGIRI HULU','INDRAGIRI HILIR','KAMPAR','BENGKALIS','KEPULAUAN MERANTI','KOTA PEKANBARU','BINTAN','KARIMUN','LINGGA','NATUNA','ANAMBAS','KOTA BATAM','KOTA TANJUNGPINANG','BANGKA','BELITUNG','BANGKA BARAT','BANGKA SELATAN','BANGKA TENGAH','BELITUNG TIMUR','KOTA PANGKAL PINANG','KEPULAUAN SERIBU','KOTA ADM. JAKARTA PUSAT','KOTA ADM. JAKARTA UTARA','KOTA ADM. JAKARTA BARAT','KOTA ADM. JAKARTA SELATAN','KOTA ADM. JAKARTA TIMUR','BOGOR','SUKABUMI','CIANJUR','BANDUNG','GARUT','TASIKMALAYA','CIAMIS','KUNINGAN','CIREBON','MAJALENGKA','SUMEDANG','INDRAMAYU','SUBANG','PURWAKARTA','KARAWANG','BEKASI','KOTA BOGOR','KOTA SUKABUMI','KOTA BANDUNG','KOTA CIREBON','KOTA BEKASI','KOTA DEPOK','BANJAR','SEMARANG','KUDUS','PATi','REMBANG','BLORA','GROBOGAN','DEMAK','KENDAL','BATANG','PEKALONGAN','PEMALANG','TEGAL','BREBES','MAGELANG','TEMANGGUNG','WONOSOBO','PURWOREJO','KEBUMEN','BANYUMAS','PURBALINGGA','BANJARNEGARA','CILACAP','SLEMAN','BANTUL','GUNUNGKIDUL','KULON PROGO','KOTA YOGYAKARTA','SURABAYA','SIDOARJO','GRESIK','LAMONGAN','TUBAN','BOJONEGORO','MADIUN','NGAWI','MAGETAN','PONOROGO','PACITAN','KEDIRI','BLITAR','TULUNGAGUNG','TRENGGALEK','MALANG','PASURUAN','PROBOLINGGO','LUMAJANG','JEMBER','BONDOWOSO','SITUBONDO','BANYUWANGI','PANDEGLANG','LEBAK','SERANG','TANGERANG','KOTA SERANG','KOTA CILEGON','KOTA TANGERANG','KOTA TANGERANG SELATAN','DENPASAR','BADUNG','TABANAN','BANGLI','GIANYAR','KLUNGKUNG','BULELENG','JEMBRANA','MATARAM','LOMBOK BARAT','LOMBOK TENGAH','LOMBOK TIMUR','SUMBAWA','DOMPU','BIMA','KUPANG','TIMOR TENGAH SELATAN','TIMOR TENGAH UTARA','BELU','ALOR','ENDE','Sikka','FLORES TIMUR','SUMBA TIMUR','SUMBA BARAT','PONTIANAK','KUBU RAYA','SAMBAS','SINGKAWANG','SANGGAU','KETAPANG','SINTANG','MELAWI','KAPUAS HULU','LANDAK','BANJARMASIN','BANJARBARU','TANAH LAUT','TANAH BUMBU','KOTABARU','HULU SUNGAI SELATAN','BARITO KUALA','BALIKPAPAN','SAMARINDA','BONTANG','PASER','PENAJAM PASER UTARA','KUTAI BARAT','KUTAI TIMUR','KUTAI KARTANEGARA','MANADO','BITUNG','TOMOHON','MINAHASA','BOLAANG MONGONDOW','PALU','SIGI','DONGGALA','PARIGI MOUTONG','MAKASSAR','GOWA','TAKALAR','MAROS','BONE','WATAMPONE','PAREPARE','KENDARI','KONAWE','KONAWE SELATAN','AMBON','MALUKU TENGAH','TERNATE','TIDORE','HALMAHERA BARAT','HALMAHERA TENGAH','JAYAPURA','MERAUKE'
-]
+// Master Lokasi options fetched from backend
+const lokasiOptions = ref([])
+const loadingLokasi = ref(false)
 
 const rules = {
   required: v => !!v || 'Wajib diisi',
@@ -153,6 +149,18 @@ const rules = {
 }
 
 onMounted(async () => {
+  // Load master lokasi first for options
+  try {
+    loadingLokasi.value = true
+    const data = await apiService.getMasterLokasi()
+    lokasiOptions.value = Array.isArray(data) ? data : []
+  } catch (e) {
+    console.error('Gagal memuat master lokasi', e)
+    lokasiOptions.value = []
+  } finally {
+    loadingLokasi.value = false
+  }
+
   if (!workerId) return
   try {
     const w = await apiService.getWorker(workerId)
@@ -229,14 +237,7 @@ const onReset = () => {
 
 const goBackToEdit = () => {
   successOpen.value = false
-  // Redirect to EditView.vue with proper navigation
-  router.push('/edit').then(() => {
-    // Force reload to ensure data is fresh
-    window.location.reload()
-  }).catch(() => {
-    // Fallback if router fails
-    window.location.href = '/edit'
-  })
+  router.push('/edit/data')
 }
 </script>
 

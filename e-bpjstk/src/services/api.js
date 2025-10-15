@@ -365,6 +365,31 @@ class ApiService {
       method: 'DELETE',
     })
   }
+
+  // Master Lokasi endpoints
+  async getMasterLokasi() {
+    return this.request('/master-lokasi', { method: 'GET' })
+  }
+
+  async createMasterLokasi(lokasiData) {
+    return this.request('/master-lokasi', {
+      method: 'POST',
+      body: JSON.stringify(lokasiData),
+    })
+  }
+
+  async updateMasterLokasi(id, lokasiData) {
+    return this.request(`/master-lokasi/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(lokasiData),
+    })
+  }
+
+  async deleteMasterLokasi(id) {
+    return this.request(`/master-lokasi/${id}`, {
+      method: 'DELETE',
+    })
+  }
 }
 
 // Create singleton instance

@@ -17,6 +17,21 @@ import (
 	excelize "github.com/xuri/excelize/v2"
 )
 
+// convertKodeToNama mengkonversi kode lokasi ke nama lokasi
+func convertKodeToNama(db *database.DB, kode string) string {
+	if kode == "" {
+		return ""
+	}
+	
+	var lokasi models.MasterLokasi
+	err := db.Where("kode = ? AND is_active = true", kode).First(&lokasi).Error
+	if err != nil || lokasi.Nama == "" {
+		return kode // Return kode asli jika tidak ditemukan
+	}
+	
+	return lokasi.Nama
+}
+
 // List workers milik user login
 func ListWorkers(db *database.DB) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -452,7 +467,7 @@ func UploadTK(db *database.DB) fiber.Handler {
                 Upah:               parseUpah(get(24)), // Y: UPAH (menerima 2500000.00, 5.000.000, 31,00 → 31 juta)
 				Alamat:             get(25),  // Z: ALAMAT (Jl. Merpati 12 Jakarta)
 				KodePos:            get(26),  // AA: KODE_POS (10130)
-				LokasiPekerjaan:    get(27),  // AB: LOKASI_PEKERJAAN (Kantor Pusat)
+				LokasiPekerjaan:    convertKodeToNama(db, get(27)), // AB: LOKASI_PEKERJAAN_KODE (konversi ke nama)
 				StatusPegawai:      get(28),  // AC: STATUS_PEGAWAI (Tetap)
 				TanggalAwalBekerja: get(29),  // AD: TGL_AWAL_BEKERJA (2020-07-01)
 				TanggalAkhirKontrak: get(30), // AE: TGL_AKHIR_KONTRAK (kosong untuk tetap)

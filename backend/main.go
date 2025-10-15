@@ -111,6 +111,12 @@ func setupRoutes(app *fiber.App, db *database.DB) {
 	api.Get("/report-periods/:id/print", middleware.AuthRequired(), handlers.PrintReportPeriod(db))
 	api.Get("/report-periods-summary", middleware.AuthRequired(), handlers.SummaryDashboard(db))
 
+	// Master Lokasi routes
+	api.Get("/master-lokasi", middleware.AuthRequired(), handlers.ListMasterLokasi(db))
+	api.Post("/master-lokasi", middleware.AuthRequired(), handlers.CreateMasterLokasi(db))
+	api.Put("/master-lokasi/:id", middleware.AuthRequired(), handlers.UpdateMasterLokasi(db))
+	api.Delete("/master-lokasi/:id", middleware.AuthRequired(), handlers.DeleteMasterLokasi(db))
+
 	// Workers (protected)
 	// Specific routes must come BEFORE parameter routes to avoid conflicts
 	api.Post("/workers/upload", middleware.AuthRequired(), handlers.UploadWorkers(db))
