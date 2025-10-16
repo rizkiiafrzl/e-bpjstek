@@ -113,10 +113,14 @@ func setupRoutes(app *fiber.App, db *database.DB) {
 
 	// Workers (protected)
 	// Specific routes must come BEFORE parameter routes to avoid conflicts
-	api.Post("/workers/upload", middleware.AuthRequired(), handlers.UploadWorkers(db))
+	// Legacy path mapped to standardized handler for consistency with SIPP template
+	api.Post("/workers/upload", middleware.AuthRequired(), handlers.UploadTK(db))
 	api.Post("/workers/upload-tk", middleware.AuthRequired(), handlers.UploadTK(db))
+	api.Post("/workers/upload-tk-na", middleware.AuthRequired(), handlers.UploadTKNA(db))
 	api.Post("/workers/upload-upah", middleware.AuthRequired(), handlers.UploadUpah(db))
 	api.Post("/koreksi-data-tk", middleware.AuthRequired(), handlers.KoreksiTK(db))
+	api.Post("/workers/calculate-iuran", middleware.AuthRequired(), handlers.KalkulasiIuranEndpoint(db))
+	api.Get("/workers/programs", middleware.AuthRequired(), handlers.GetProgramBPJS(db))
 	api.Get("/workers/upload-history", middleware.AuthRequired(), handlers.ListUploadHistory(db))
 	api.Get("/workers/upload-history/:id/download", middleware.AuthRequired(), handlers.DownloadUploadedFile(db))
 	api.Delete("/workers/upload-history/:id", middleware.AuthRequired(), handlers.DeleteUploadHistory(db))

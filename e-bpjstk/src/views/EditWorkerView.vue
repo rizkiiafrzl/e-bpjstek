@@ -604,7 +604,7 @@ const handleSubmit = async () => {
 
 // Navigation
 const goBack = () => {
-  router.push('/edit')
+  router.push('/dashboard')
 }
 
 // Load data on mount

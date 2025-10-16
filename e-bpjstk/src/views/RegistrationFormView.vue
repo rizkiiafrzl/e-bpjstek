@@ -229,14 +229,7 @@ const onReset = () => {
 
 const goBackToEdit = () => {
   successOpen.value = false
-  // Redirect to EditView.vue with proper navigation
-  router.push('/edit').then(() => {
-    // Force reload to ensure data is fresh
-    window.location.reload()
-  }).catch(() => {
-    // Fallback if router fails
-    window.location.href = '/edit'
-  })
+  router.push('/dashboard')
 }
 </script>
 

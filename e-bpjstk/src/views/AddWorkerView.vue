@@ -484,8 +484,7 @@ const submit = async () => {
 
 const goBackToEdit = () => {
   dlgSuccess.value = false
-  // Kembali ke halaman edit; gunakan payload kosong jika tidak ada data
-  router.push('/edit/{}')
+  router.push('/dashboard')
 }
 
 // Consent handlers
@@ -514,11 +513,10 @@ const agreeConsent = async () => {
   try {
     const created = await apiService.createWorker(payload)
     dlgConsent.value = false
-    if (created && created.id) {
-      // Setelah setuju, buka form lanjutan seperti contoh gambar
-      router.push(`/tenaga/form-lanjutan/${created.id}`)
+    const newId = created?.id || created?.worker?.id
+    if (newId) {
+      router.push(`/tenaga/form-lanjutan/${newId}`)
     } else {
-      // fallback: buka halaman edit generik dengan payload jika id tidak tersedia
       const dataParam = encodeURIComponent(JSON.stringify(payload))
       router.push(`/edit/${dataParam}`)
     }

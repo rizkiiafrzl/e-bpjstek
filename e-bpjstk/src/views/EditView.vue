@@ -437,8 +437,8 @@ const allWorkers = ref([]) // Store all workers data
 const editing = ref(false)
 const editItem = ref({ id: null, nik: '', kpj: '', noPegawai: '', nama: '', upah: 0, rapel: 0 })
 
-// Filter state - default to show all workers
-const selectedFilter = ref('Semua Data')
+// Filter state - default to show only active workers
+const selectedFilter = ref('Peserta Aktif')
 const filterOptions = [
   { title: 'Semua Data', value: 'semua' },
   { title: 'Peserta Aktif', value: 'aktif' },
@@ -449,6 +449,7 @@ const filterOptions = [
 // Load workers data
 const loadWorkers = async () => {
   try {
+    // Default load semua data (termasuk nonaktif)
     const rows = await apiService.getWorkers()
     allWorkers.value = Array.isArray(rows) ? rows : []
     applyFilter()
@@ -463,24 +464,20 @@ const applyFilter = () => {
   
   switch (selectedFilter.value) {
     case 'semua':
-      // Semua Data: tampilkan semua workers
+      // Semua Data: tampilkan semua workers (termasuk nonaktif)
       filteredWorkers = allWorkers.value
       break
     case 'aktif':
-      // Peserta Aktif: workers dengan upah > 0 dan tidak ada tanggal akhir kontrak
+      // Peserta Aktif: workers yang TIDAK memiliki status NONAKTIF
       filteredWorkers = allWorkers.value.filter(worker => 
-        (worker.upah > 0) && 
-        (!worker.tanggalAkhirKontrak || worker.tanggalAkhirKontrak === null)
+        worker.statusPegawai !== "NONAKTIF"
       )
       break
     case 'non-aktif':
-      // Peserta Non Aktif: workers dengan tanggal akhir kontrak yang sudah lewat
-      filteredWorkers = allWorkers.value.filter(worker => {
-        if (!worker.tanggalAkhirKontrak) return false
-        const endDate = new Date(worker.tanggalAkhirKontrak)
-        const today = new Date()
-        return endDate < today
-      })
+      // Peserta Non Aktif: workers dengan status NONAKTIF
+      filteredWorkers = allWorkers.value.filter(worker => 
+        worker.statusPegawai === "NONAKTIF"
+      )
       break
     case 'baru': {
       // Peserta Baru: workers yang baru dibuat dalam 30 hari terakhir

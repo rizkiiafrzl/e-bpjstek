@@ -66,7 +66,8 @@
                 variant="outlined"
                 accept=".xls,.xlsx"
                 prepend-icon="mdi-file-excel"
-                @change="onFileSelected"
+                :multiple="false"
+                @update:model-value="onFileSelected"
                 class="file-input"
               />
 
@@ -107,29 +108,31 @@ const selectedFile = ref(null)
 const isUploading = ref(false)
 
 const goBack = () => {
-  router.back()
+  router.push('/dashboard')
 }
 
-const onFileSelected = (file) => {
-  if (file && file.length > 0) {
-    const file = file[0]
-    // Validate file type
-    const allowedTypes = ['.xls', '.xlsx']
-    const fileExtension = '.' + file.name.split('.').pop().toLowerCase()
-
-    if (!allowedTypes.includes(fileExtension)) {
-      alert('File harus berupa Excel (.xls atau .xlsx)')
-      selectedFile.value = null
-      return
-    }
-
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Ukuran file maksimal 10MB')
-      selectedFile.value = null
-      return
-    }
+const onFileSelected = (value) => {
+  // Normalize: Vuetify may pass a File or an array of File
+  const file = Array.isArray(value) ? value[0] : value
+  if (!file) {
+    selectedFile.value = null
+    return
   }
+  // Validate file type
+  const allowedTypes = ['.xls', '.xlsx']
+  const fileExtension = '.' + (file.name || '').split('.').pop().toLowerCase()
+  if (!allowedTypes.includes(fileExtension)) {
+    alert('File harus berupa Excel (.xls atau .xlsx)')
+    selectedFile.value = null
+    return
+  }
+  // Validate file size (max 10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    alert('Ukuran file maksimal 10MB')
+    selectedFile.value = null
+    return
+  }
+  selectedFile.value = file
 }
 
 const handleUpload = async () => {
@@ -141,22 +144,20 @@ const handleUpload = async () => {
   isUploading.value = true
 
   try {
-    // Upload TK NA menggunakan API upload TK
-    const result = await api.uploadTK(selectedFile.value)
-    
+    // Upload TK NA menggunakan API upload TK NA yang benar
+    const result = await api.uploadTKNA(selectedFile.value)
     // Show success message with details
-    const message = `File berhasil diupload!\n\n` +
+    const message = `File TK Nonaktif berhasil diupload!\n\n` +
       `Total Data: ${result.totalData || 0}\n` +
-      `Valid: ${result.valid || 0}\n` +
-      `Invalid: ${result.invalid || 0}`
-    
+      `Berhasil Dinonaktifkan: ${result.valid || 0}\n` +
+      `Gagal: ${result.invalid || 0}\n` +
+      `Aksi: ${result.action || 'nonaktif'}`
     alert(message)
-
     // Reset form
     selectedFile.value = null
   } catch (error) {
     console.error('Upload error:', error)
-    alert(error?.message || 'Gagal mengupload file. Silakan coba lagi.')
+    alert(error?.message || 'Gagal mengupload file TK Nonaktif. Silakan coba lagi.')
   } finally {
     isUploading.value = false
   }
@@ -168,7 +169,6 @@ const downloadTemplate = async () => {
   try {
     const base = api.baseURL || (import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1')
     const url = `${base}/templates/tk_na`
-
     const response = await fetch(url, { method: 'GET' })
     if (!response.ok) {
       throw new Error('Gagal mengunduh template')

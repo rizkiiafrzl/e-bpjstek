@@ -130,7 +130,7 @@ const uploadTypes = ref([
 ])
 
 const goBack = () => {
-  router.back()
+  router.push('/dashboard')
 }
 
 const onFileSelected = (file) => {

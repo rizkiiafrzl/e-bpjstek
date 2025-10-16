@@ -53,9 +53,9 @@ import { computed } from 'vue'
 
 const route = useRoute()
 
-// Hide header on auth pages
+// Hide header on auth pages (dashboard tetap menampilkan header)
 const showHeader = computed(() => {
-  const authRoutes = ['/login', '/register', '/dashboard']
+  const authRoutes = ['/login', '/register']
   return !authRoutes.includes(route.path)
 })
 
