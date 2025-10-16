@@ -18,7 +18,7 @@ type DB struct {
 // Connect establishes database connection
 func Connect() (*DB, error) {
 	host := config.GetEnv("DB_HOST", "localhost")
-	port := config.GetEnv("DB_PORT", "5432")
+	port := config.GetEnv("DB_PORT", "5433")
 	user := config.GetEnv("DB_USER", "postgres")
 	password := config.GetEnv("DB_PASSWORD", "password")
 	dbname := config.GetEnv("DB_NAME", "e-bpjstk")

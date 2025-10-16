@@ -258,32 +258,6 @@ class ApiService {
     })
   }
 
-  // Upload TK NA (Tenaga Kerja Nonaktif)
-  async uploadTKNA(file) {
-    const form = new FormData()
-    form.append('file', file)
-    const url = `${this.baseURL}/workers/upload-tk-na`
-    const headers = this.token ? { Authorization: `Bearer ${this.token}` } : {}
-    console.log('[uploadTKNA] POST', url, { hasToken: !!this.token, fileName: file?.name, fileSize: file?.size })
-    // Don't set Content-Type explicitly; let browser set multipart boundary
-    return fetch(url, {
-      method: 'POST',
-      headers,
-      body: form,
-    }).then(async (res) => {
-      const text = await res.text()
-      let data = null
-      try { data = text ? JSON.parse(text) : null } catch { data = { message: text } }
-      if (!res.ok) {
-        const message = (data && (data.error || data.message)) || `HTTP error! status: ${res.status}`
-        console.error('[uploadTKNA] failed', res.status, res.statusText, message, data)
-        throw new Error(message)
-      }
-      console.log('[uploadTKNA] success', data)
-      return data
-    })
-  }
-
   // Upload Upah (Wage Data)
   async uploadUpah(file) {
     const form = new FormData()
@@ -363,12 +337,8 @@ class ApiService {
   }
 
   // Workers
-  async getWorkers(status = null) {
-    let url = '/workers'
-    if (status) {
-      url += `?status=${status}`
-    }
-    return this.request(url, { method: 'GET' })
+  async getWorkers() {
+    return this.request('/workers', { method: 'GET' })
   }
 
   async getWorker(id) {
@@ -376,7 +346,6 @@ class ApiService {
   }
 
   async createWorker(worker) {
-    console.log('API Service - createWorker called with:', worker)
     return this.request('/workers', {
       method: 'POST',
       body: JSON.stringify(worker),

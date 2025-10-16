@@ -115,19 +115,7 @@
                     :rules="[(v) => !!dob || 'Wajib diisi']"
                   />
                 </template>
-                <v-date-picker
-                  class="compact-date-picker"
-                  v-model="dob"
-                  hide-actions
-                  locale="en-US"
-                  :first-day-of-week="0"
-                  :show-adjacent-months="true"
-                  elevation="0"
-                  rounded
-                  :title="''"
-                  :width="300"
-                  @update:model-value="onPickDob"
-                />
+                <v-date-picker v-model="dob" hide-actions @update:model-value="onPickDob" />
               </v-menu>
             </v-col>
           </v-row>
@@ -173,19 +161,7 @@
                     required
                   />
                 </template>
-                <v-date-picker
-                  class="compact-date-picker"
-                  v-model="passportValidUntil"
-                  hide-actions
-                  locale="en-US"
-                  :first-day-of-week="0"
-                  :show-adjacent-months="true"
-                  elevation="0"
-                  rounded
-                  :title="''"
-                  :width="300"
-                  @update:model-value="onPickPassportValid"
-                />
+                <v-date-picker v-model="passportValidUntil" hide-actions @update:model-value="onPickPassportValid" />
               </v-menu>
             </v-col>
           </v-row>
@@ -223,22 +199,6 @@
           </v-card-text>
         </v-card>
       </v-dialog>
-
-      <!-- Consent Dialog sebelum pindah ke form lengkap -->
-      <v-dialog v-model="dlgConsent" max-width="520" persistent>
-        <v-card>
-          <v-card-text class="text-center pa-6">
-            <div class="text-h5 font-weight-bold mb-3">Persetujuan</div>
-            <div>
-              Dengan ini saya menyatakan bahwa data yang disampaikan merupakan data yang sebenarnya dan bersedia jika data yang didaftarkan disimpan BPJS Ketenagakerjaan sebagai data peserta.
-            </div>
-            <div class="d-flex justify-center mt-6" style="gap: 12px;">
-              <v-btn color="success" @click="agreeConsent">Setuju</v-btn>
-              <v-btn color="error" variant="outlined" @click="rejectConsent">Tidak</v-btn>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-dialog>
     </v-container>
   </div>
 </template>
@@ -253,7 +213,7 @@ const router = useRouter()
 const props = defineProps({ id: { type: [String, Number], required: false } })
 
 const formRef = ref(null)
-const form = ref({ nik: '', nama: '', nationality: 'WNI', passportNo: '', passportValidUntil: '', kpj: '' })
+const form = ref({ nik: '', nama: '', nationality: 'WNI', passportNo: '', passportValidUntil: '' })
 const dob = ref('') // YYYY-MM-DD
 const dobMenu = ref(false)
 const passportValidUntil = ref('') // YYYY-MM-DD
@@ -271,7 +231,6 @@ const precheckTouched = ref(false)
 
 // Success dialog
 const dlgSuccess = ref(false)
-const dlgConsent = ref(false)
 
 onMounted(async () => {
   if (props.id && String(props.id).length > 0) {
@@ -282,7 +241,6 @@ onMounted(async () => {
       form.value.nama = data.nama || ''
       form.value.nationality = data.nationality || 'WNI'
       form.value.passportNo = data.passportNo || ''
-      form.value.kpj = data.kpj || ''
       hasCard.value = data.kpj ? 'sudah' : 'belum'
       kpj.value = data.kpj || ''
       if (data.dateOfBirth) {
@@ -341,12 +299,6 @@ const finishPrecheck = () => {
   if (hasCard.value === 'belum' && nationality.value) {
     form.value.nationality = nationality.value
     console.log('Form nationality set to:', form.value.nationality)
-  }
-  
-  // Set KPJ to form if user has card
-  if (hasCard.value === 'sudah' && kpj.value) {
-    form.value.kpj = kpj.value
-    console.log('Form KPJ set to:', form.value.kpj)
   }
 }
 
@@ -478,55 +430,44 @@ const submit = async () => {
     return
   }
   
-  console.log('All validations passed, showing consent dialog...')
-  dlgConsent.value = true
-}
-
-const goBackToEdit = () => {
-  dlgSuccess.value = false
-  router.push('/dashboard')
-}
-
-// Consent handlers
-const agreeConsent = async () => {
-  // Kumpulkan data minimal lalu simpan ke backend sebelum navigate ke halaman edit detail
-  const payload = {
-    nik: form.value.nationality === 'WNI' ? form.value.nik : '',
-    nama: form.value.nama,
-    noPegawai: '',
-    kpj: form.value.kpj || '',
-    dateOfBirth: dob.value || '',
-    upah: 0,
-    rapel: 0,
-    nationality: form.value.nationality,
-    passportNo: form.value.nationality === 'WNA' ? form.value.passportNo : '',
-    passportValidUntil: form.value.nationality === 'WNA' ? passportValidUntil.value : '',
-  }
+  console.log('All validations passed, submitting...')
   
-  // Debug logging
-  console.log('=== DEBUG PAYLOAD ===')
-  console.log('form.value.kpj:', form.value.kpj)
-  console.log('kpj.value:', kpj.value)
-  console.log('hasCard.value:', hasCard.value)
-  console.log('Full payload:', payload)
-  console.log('====================')
   try {
-    const created = await apiService.createWorker(payload)
-    dlgConsent.value = false
-    const newId = created?.id || created?.worker?.id
-    if (newId) {
-      router.push(`/tenaga/form-lanjutan/${newId}`)
-    } else {
-      const dataParam = encodeURIComponent(JSON.stringify(payload))
-      router.push(`/edit/${dataParam}`)
+    const payload = {
+      nik: form.value.nationality === 'WNI' ? form.value.nik : '',
+      nama: form.value.nama,
+      noPegawai: '',
+      kpj: hasCard.value === 'sudah' ? kpj.value : '',
+      dateOfBirth: dob.value || '',
+      upah: 0,
+      rapel: 0,
+      nationality: form.value.nationality,
+      passportNo: form.value.nationality === 'WNA' ? form.value.passportNo : '',
+      passportValidUntil: form.value.nationality === 'WNA' ? passportValidUntil.value : '',
     }
+    
+    console.log('Payload:', payload)
+    
+    if (props.id) {
+      console.log('Updating worker with ID:', props.id)
+      await apiService.updateWorker(props.id, payload)
+    } else {
+      console.log('Creating new worker')
+      await apiService.createWorker(payload)
+    }
+    
+    console.log('Worker saved successfully')
+    dlgSuccess.value = true
   } catch (e) {
+    console.error('Error saving worker:', e)
     alert(e?.message || 'Gagal menyimpan data tenaga kerja')
   }
 }
 
-const rejectConsent = () => {
-  dlgConsent.value = false
+const goBackToEdit = () => {
+  dlgSuccess.value = false
+  // Kembali ke halaman edit; gunakan payload kosong jika tidak ada data
+  router.push('/edit/{}')
 }
 </script>
 
@@ -623,23 +564,4 @@ const rejectConsent = () => {
   color: #d32f2f;
   font-size: 12px;
 }
-
-/* Compact date-picker look */
-.compact-date-picker :deep(.v-date-picker-title) {
-  display: none;
-}
-.compact-date-picker :deep(.v-picker-title) {
-  display: none !important;
-}
-.compact-date-picker :deep(.v-date-picker) {
-  width: 300px !important;
-}
-.compact-date-picker :deep(.v-date-picker-header__content) {
-  font-weight: 600;
-}
-.compact-date-picker :deep(.v-date-picker-month__day) {
-  height: 32px;
-  width: 32px;
-}
 </style>
-
