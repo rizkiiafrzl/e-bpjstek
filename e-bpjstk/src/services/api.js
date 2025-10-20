@@ -258,6 +258,28 @@ class ApiService {
     })
   }
 
+  // Upload TK NA (Tenaga Kerja Nonaktif)
+  async uploadTKNA(file) {
+    const form = new FormData()
+    form.append('file', file)
+    const url = `${this.baseURL}/workers/upload-tk-na`
+    const headers = this.token ? { Authorization: `Bearer ${this.token}` } : {}
+    return fetch(url, {
+      method: 'POST',
+      headers,
+      body: form,
+    }).then(async (res) => {
+      const text = await res.text()
+      let data = null
+      try { data = text ? JSON.parse(text) : null } catch { data = { message: text } }
+      if (!res.ok) {
+        const message = (data && (data.error || data.message)) || `HTTP error! status: ${res.status}`
+        throw new Error(message)
+      }
+      return data
+    })
+  }
+
   // Upload Upah (Wage Data)
   async uploadUpah(file) {
     const form = new FormData()

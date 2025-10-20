@@ -105,7 +105,7 @@ const selectedFile = ref(null)
 const isUploading = ref(false)
 
 const goBack = () => {
-  router.back()
+  router.push('/dashboard')
 }
 
 const onFileSelected = (file) => {
@@ -142,13 +142,15 @@ const handleUpload = async () => {
     // Upload Upah menggunakan API upload upah yang benar
     const result = await api.uploadUpah(selectedFile.value)
     
-    // Show success message with details
-    const message = `File upah berhasil diupload!\n\n` +
-      `Total Data: ${result.totalData || 0}\n` +
-      `Valid: ${result.valid || 0}\n` +
-      `Invalid: ${result.invalid || 0}`
-    
-    alert(message)
+    // Show success message with details + backend error lines if any
+    const base = `File upah berhasil diupload!` +
+      `\n\nTotal Data: ${result.totalData || 0}` +
+      `\nValid: ${result.valid || 0}` +
+      `\nInvalid: ${result.invalid || 0}`
+    const details = Array.isArray(result.errors) && result.errors.length
+      ? `\n\nDetail Error (maks 20):\n- ` + result.errors.slice(0, 20).join(`\n- `)
+      : ''
+    alert(base + details)
 
     // Reset form
     selectedFile.value = null

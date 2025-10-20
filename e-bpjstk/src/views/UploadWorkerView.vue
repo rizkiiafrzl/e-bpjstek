@@ -275,7 +275,7 @@ onMounted(() => {
 })
 
 const goBack = () => {
-  router.back()
+  router.push('/dashboard')
 }
 
 const onFileSelected = (file) => {
@@ -308,21 +308,23 @@ const handleUpload = async () => {
   isUploading.value = true
   try {
     let result
-    if (uploadType.value === 'mendaftar' || uploadType.value === 'lanjutan') {
-      // Upload TK menggunakan endpoint khusus
-      result = await api.uploadTK(selectedFile.value)
+    // Upload TK Mendaftar → /workers/upload-tk; Upload TK Lanjutan → /koreksi-data-tk
+    if (uploadType.value === 'lanjutan') {
+      result = await api.koreksiTK(selectedFile.value)
     } else {
-      // Upload lainnya menggunakan endpoint umum
-      result = await api.uploadWorkers(selectedFile.value)
+      result = await api.uploadTK(selectedFile.value)
     }
     
     // Show success message with details
-    const message = `File berhasil diupload!\n\n` +
-      `Total Data: ${result.totalData || 0}\n` +
-      `Valid: ${result.valid || 0}\n` +
-      `Invalid: ${result.invalid || 0}`
-    
-    alert(message)
+    const base = `File berhasil diupload!` +
+      `\n\nTotal Data: ${result.totalData || 0}` +
+      `\nValid: ${result.valid || 0}` +
+      `\nInvalid: ${result.invalid || 0}`
+    // Tampilkan detail error bila ada
+    const details = Array.isArray(result.errors) && result.errors.length
+      ? `\n\nDetail Error (maks 20):\n- ` + result.errors.slice(0, 20).join(`\n- `)
+      : ''
+    alert(base + details)
     selectedFile.value = null
     uploadType.value = 'mendaftar'
     await loadHistoryData()
